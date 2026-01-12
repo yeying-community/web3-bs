@@ -5,8 +5,16 @@ export type JsonRpcRequest = {
 
 export interface Eip1193Provider {
   request: (args: JsonRpcRequest) => Promise<unknown>;
-  on?: (event: string, listener: (...args: unknown[]) => void) => void;
-  removeListener?: (event: string, listener: (...args: unknown[]) => void) => void;
+  on?: {
+    (event: 'accountsChanged', listener: (accounts: string[]) => void): void;
+    (event: 'chainChanged', listener: (chainId: string) => void): void;
+    (event: string, listener: (...args: unknown[]) => void): void;
+  };
+  removeListener?: {
+    (event: 'accountsChanged', listener: (accounts: string[]) => void): void;
+    (event: 'chainChanged', listener: (chainId: string) => void): void;
+    (event: string, listener: (...args: unknown[]) => void): void;
+  };
   isMetaMask?: boolean;
   isYeYing?: boolean;
 }

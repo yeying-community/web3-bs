@@ -143,12 +143,15 @@ npm install @yeying-community/yeying-web3
 
 - Frontend Dapp (HTML): `examples/frontend/dapp.html`
 - Frontend Dapp (TS module): `examples/frontend/main.ts`
-- Backend server: `examples/backend/server.js`
+- Backend server (Node): `examples/backend/node/server.js`
+- Backend server (Go): `examples/backend/go/main.go`
+- Backend server (Python): `examples/backend/python/app.py`
+- Backend server (Java): `examples/backend/java/src/main/java/com/yeying/demo/AuthServer.java`
 
 ## 本地验证
 
 1. 构建 SDK：`npm run build`
-2. 启动后端：`node examples/backend/server.js`
+2. 启动后端：`node examples/backend/node/server.js`
 3. 从后端服务器打开前端（同源 Cookie）：
    - `python3 -m http.server 8000 --directory examples/frontend`
    - `http://localhost:4001/dapp.html`

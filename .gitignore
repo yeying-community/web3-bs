@@ -2,5 +2,7 @@ node_modules
 dist
 coverage
 .idea
+.tmp
 package-lock.json
 docs/
+examples/backend/java/target/

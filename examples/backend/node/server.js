@@ -286,8 +286,8 @@ app.get('/api/v1/private/profile', verifyAccessToken, (req, res) => {
   );
 });
 
-const frontendRoot = path.join(__dirname, '../frontend');
-const distRoot = path.join(__dirname, '../../dist');
+const frontendRoot = path.join(__dirname, '..', '..', 'frontend');
+const distRoot = path.join(__dirname, '..', '..', '..', 'dist');
 app.use('/dist', express.static(distRoot));
 app.use('/', express.static(frontendRoot));
 
