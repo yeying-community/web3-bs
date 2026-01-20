@@ -312,6 +312,31 @@ export async function getStoredUcanRoot(id: string = DEFAULT_SESSION_ID): Promis
   return record?.root || null;
 }
 
+function capsEqual(a: UcanCapability[] | undefined, b: UcanCapability[] | undefined): boolean {
+  return JSON.stringify(a || []) === JSON.stringify(b || []);
+}
+
+function isRootExpired(root: UcanRootProof, nowMs: number): boolean {
+  return Boolean(root.exp && nowMs > root.exp);
+}
+
+export async function getOrCreateUcanRoot(options: CreateRootUcanOptions): Promise<UcanRootProof> {
+  const provider = options.provider || (await requireProvider());
+  const session = options.session || (await createUcanSession({ id: options.sessionId, provider }));
+  const nowMs = Date.now();
+  const stored = await getStoredUcanRoot(session.id);
+  if (
+    stored &&
+    (!stored.aud || stored.aud === session.did) &&
+    capsEqual(stored.cap, options.capabilities) &&
+    !isRootExpired(stored, nowMs)
+  ) {
+    return stored;
+  }
+
+  return await createRootUcan({ ...options, provider, session });
+}
+
 function buildUcanStatement(payload: Record<string, unknown>): string {
   return `UCAN-AUTH ${JSON.stringify(payload)}`;
 }
@@ -346,7 +371,15 @@ function buildSiweMessage(params: {
 
 async function resolveAddress(provider: Eip1193Provider, address?: string): Promise<string> {
   if (address) return address;
-  const accounts = await getAccounts(provider);
+  let accounts = await getAccounts(provider);
+  if (!accounts[0]) {
+    const requested = (await provider.request({
+      method: 'eth_requestAccounts',
+    })) as string[];
+    if (Array.isArray(requested)) {
+      accounts = requested;
+    }
+  }
   if (!accounts[0]) throw new Error('No account available');
   return accounts[0];
 }

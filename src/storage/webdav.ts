@@ -154,6 +154,26 @@ export class WebDavClient {
     return await this.request('MKCOL', path);
   }
 
+  async ensureDirectory(path: string): Promise<void> {
+    if (!path || path === '/') return;
+    const segments = path.split('/').filter(Boolean);
+    if (segments.length === 0) return;
+
+    let current = '';
+    for (const segment of segments) {
+      current = `${current}/${segment}`;
+      const res = await this.fetcher(this.buildUrl(current), {
+        method: 'MKCOL',
+        headers: this.buildHeaders(),
+        credentials: this.credentials,
+      } as RequestInit);
+
+      if (res.ok) continue;
+      if (res.status === 405) continue;
+      throw new Error(`WebDAV MKCOL ${current} failed: ${res.status} ${res.statusText}`);
+    }
+  }
+
   async remove(path: string): Promise<Response> {
     return await this.request('DELETE', path);
   }

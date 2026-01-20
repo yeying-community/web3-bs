@@ -1,15 +1,12 @@
 import {
   getProvider,
   requestAccounts,
-  loginWithChallenge,
   authFetch,
   refreshAccessToken,
   getAccessToken,
-  createUcanSession,
-  createRootUcan,
   createInvocationUcan,
   authUcanFetch,
-  createWebDavClient,
+  initDappSession,
 } from '@yeying-community/web3-bs';
 
 async function connectAndLogin() {
@@ -24,14 +21,26 @@ async function connectAndLogin() {
     throw new Error('No account returned');
   }
 
-  const login = await loginWithChallenge({
+  const session = await initDappSession({
     provider,
     address,
-    baseUrl: 'http://localhost:3203/api/v1/public/auth',
-    storeToken: false,
+    appAuth: {
+      baseUrl: 'http://localhost:3203/api/v1/public/auth',
+      storeToken: false,
+    },
+    webdav: {
+      baseUrl: 'http://localhost:6065',
+      audience: 'did:web:localhost:6065',
+      appId: 'web3-bs-demo',
+      capabilities: [{ resource: 'profile', action: 'read' }],
+    },
   });
 
-  console.log('token', login.token);
+  if (!session.appLogin) {
+    throw new Error('Login failed');
+  }
+
+  console.log('token', session.appLogin.token);
 
   const profileRes = await authFetch('http://localhost:3203/api/v1/public/profile', { method: 'GET' }, {
     baseUrl: 'http://localhost:3203/api/v1/public/auth',
@@ -50,32 +59,29 @@ async function connectAndLogin() {
 
   // WebDAV Storage (requires webdav server running on 6065)
   try {
-    const webdav = createWebDavClient({
-      baseUrl: 'http://localhost:6065',
-      token: login.token,
-      prefix: '/',
-    });
-    const listing = await webdav.listDirectory('/');
-    console.log('webdav list', listing);
-    await webdav.upload('/web3-bs.txt', 'Hello WebDAV');
-    console.log('webdav uploaded');
-    const content = await webdav.downloadText('/web3-bs.txt');
-    console.log('webdav download', content);
+    const webdav = session.webdavClient;
+    const appDir = session.webdavAppDir || '/';
+    if (webdav) {
+      const listing = await webdav.listDirectory(appDir);
+      console.log('webdav list', listing);
+      await webdav.upload(`${appDir}/web3-bs.txt`, 'Hello WebDAV');
+      console.log('webdav uploaded');
+      const content = await webdav.downloadText(`${appDir}/web3-bs.txt`);
+      console.log('webdav download', content);
+    }
   } catch (error) {
     console.warn('webdav not available', error);
   }
 
-  const session = await createUcanSession();
-  const root = await createRootUcan({
-    provider,
-    session,
-    capabilities: [{ resource: 'profile', action: 'read' }],
-  });
+  if (!session.ucanSession || !session.ucanRoot) {
+    throw new Error('UCAN session unavailable');
+  }
+
   const ucanToken = await createInvocationUcan({
-    issuer: session,
+    issuer: session.ucanSession,
     audience: 'did:web:localhost:3203',
     capabilities: [{ resource: 'profile', action: 'read' }],
-    proofs: [root],
+    proofs: [session.ucanRoot],
   });
   const ucanRes = await authUcanFetch(
     'http://localhost:3203/api/v1/public/profile',

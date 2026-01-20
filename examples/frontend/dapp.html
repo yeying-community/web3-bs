@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>YeYing Dapp Demo</title>
     <style>
+      html, body {
+        height: 100%;
+        overflow: hidden;
+        overscroll-behavior: none;
+      }
       :root {
         color-scheme: light;
         font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
@@ -13,15 +18,60 @@
       }
       body {
         margin: 0;
+        padding: 0;
+        background: #f6f7fb;
+      }
+      .page {
+        height: 100vh;
         padding: 24px;
+        box-sizing: border-box;
+        overflow: hidden;
       }
       .container {
-        max-width: 880px;
+        max-width: 1200px;
         margin: 0 auto;
+        display: flex;
+        gap: 20px;
+        align-items: stretch;
+        height: 100%;
+      }
+      .main-pane,
+      .log-pane {
         background: #ffffff;
         border-radius: 12px;
         padding: 20px;
         box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+        height: 100%;
+      }
+      .main-pane {
+        flex: 2;
+        min-width: 0;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+      .log-pane {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
+      .header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 12px;
+      }
+      .header-actions {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+      .header-actions .row {
+        margin-bottom: 0;
       }
       h1 {
         margin: 0 0 8px;
@@ -85,8 +135,14 @@
         padding: 12px;
         border-radius: 8px;
         font-size: 12px;
-        overflow-x: auto;
-        max-height: 280px;
+        overflow: auto;
+      }
+      .log-pane pre {
+        flex: 1;
+        min-height: 0;
+      }
+      .log-pane h3 {
+        margin-top: 0;
       }
       .status {
         display: grid;
@@ -154,104 +210,207 @@
         font-size: 12px;
         color: #64748b;
       }
+      .tabs {
+        display: flex;
+        gap: 8px;
+        margin: 12px 0 16px;
+      }
+      .tab-button {
+        border: 1px solid #cbd5f5;
+        background: #eff6ff;
+        color: #1e40af;
+        padding: 8px 12px;
+        border-radius: 999px;
+        cursor: pointer;
+        font-size: 12px;
+      }
+      .tab-button.active {
+        background: #1e40af;
+        color: #fff;
+        border-color: #1e40af;
+      }
+      .tab-content {
+        display: none;
+      }
+      .tab-content.active {
+        display: block;
+      }
+      .tab-body {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+      }
+      @media (max-width: 960px) {
+        .container {
+          flex-direction: column;
+        }
+      }
     </style>
   </head>
   <body>
-    <div class="container">
-      <h1>YeYing Dapp Demo</h1>
-      <p>模拟 Dapp 连接 YeYing 钱包并完成登录。</p>
+    <div class="page">
+      <div class="container">
+      <div class="main-pane">
+        <div class="header">
+          <div>
+            <h1>YeYing Dapp Demo</h1>
+            <p>模拟 Dapp 连接 YeYing 钱包并完成登录。</p>
+          </div>
+          <div class="header-actions">
+            <button id="detectBtn">Detect Provider</button>
+            <button id="connectBtn" class="secondary">Connect Wallet</button>
+          </div>
+        </div>
 
-      <div class="row">
-        <button id="detectBtn">Detect Provider</button>
-        <button id="connectBtn" class="secondary">Connect Wallet</button>
+      <div class="tabs">
+        <button class="tab-button active" data-tab="siwe">单后端登录 (SIWE)</button>
+        <button class="tab-button" data-tab="ucan-multi">多后端登录 (UCAN)</button>
+        <button class="tab-button" data-tab="ucan-dapp">DAPP 登录 (UCAN + WebDAV)</button>
       </div>
 
-      <div class="section">
-        <h2>SIWE 登录（单后端）</h2>
-        <div class="hint">用于验证单个后端服务的 SIWE + JWT 登录流程。</div>
-        <div class="row">
-          <div class="field">
-            <label for="baseUrl">Auth Base URL</label>
-            <select id="baseUrl"></select>
-          </div>
-          <div class="field">
-            <label for="protectedUrl">Protected API URL</label>
-            <input id="protectedUrl" value="http://localhost:3203/api/v1/public/profile" />
-          </div>
-          <div class="field">
-            <label for="message">Sign Message</label>
-            <input id="message" value="Hello YeYing" />
-          </div>
-        </div>
-        <div class="row">
-          <button id="signBtn" class="outline">Sign Message</button>
-          <button id="loginBtn">Login</button>
-          <button id="profileBtn" class="outline">Call Profile</button>
-          <button id="refreshBtn" class="outline">Refresh Token</button>
-          <button id="logoutBtn" class="secondary">Logout</button>
-        </div>
-      </div>
-
-      <div class="section">
-        <h2>UCAN 登录（多后端）</h2>
-        <div class="hint">一次 Root UCAN 授权后，可对多个后端分别生成 Invocation UCAN 并访问。</div>
-        <div class="row">
-          <div class="field">
-            <label for="ucanAud">UCAN Audience</label>
-            <input id="ucanAud" value="did:web:localhost:3203" />
-          </div>
-          <div class="field">
-            <label for="ucanResource">UCAN Resource</label>
-            <input id="ucanResource" value="profile" />
-          </div>
-          <div class="field">
-            <label for="ucanAction">UCAN Action</label>
-            <input id="ucanAction" value="read" />
-          </div>
-        </div>
-        <div class="row">
-          <button id="ucanSessionBtn" class="secondary">Init UCAN Session</button>
-          <button id="ucanRootBtn" class="outline">Create Root UCAN</button>
-          <button id="ucanProfileBtn">Call UCAN Profile</button>
-          <button id="ucanAllBtn" class="outline">Call UCAN All</button>
-        </div>
-
-        <h3>Backends</h3>
-        <div class="backend-grid" id="backendList"></div>
-      </div>
-
-      <div class="section">
-        <h2>WebDAV 存储（UCAN）</h2>
-        <div class="hint">使用 UCAN token 访问 WebDAV（需服务端开启 UCAN）。</div>
-        <div class="row">
-          <div class="field">
-            <label for="webdavBase">WebDAV Base URL</label>
-            <input id="webdavBase" value="http://localhost:6065" />
-          </div>
-          <div class="field">
-            <label for="webdavPrefix">WebDAV Prefix</label>
-            <input id="webdavPrefix" value="/" />
-          </div>
-          <div class="field">
-            <label for="webdavAud">WebDAV Audience</label>
-            <input id="webdavAud" value="did:web:localhost:6065" />
-          </div>
-        </div>
-        <div class="row">
-          <div class="field">
-            <label for="webdavPath">File Path</label>
-            <input id="webdavPath" value="/web3-bs.txt" />
-          </div>
-          <div class="field">
-            <label for="webdavContent">Content</label>
-            <input id="webdavContent" value="Hello WebDAV" />
-          </div>
-        </div>
+      <div class="tab-body">
+      <div class="tab-content active" data-tab="siwe">
+        <div class="section">
+          <h2>SIWE 登录（单后端）</h2>
+          <div class="hint">用于验证单个后端服务的 SIWE + JWT 登录流程。</div>
           <div class="row">
-          <button id="webdavListBtn" class="outline">List</button>
-          <button id="webdavUploadBtn">Upload</button>
-          <button id="webdavDownloadBtn" class="outline">Download</button>
-          <button id="webdavDeleteBtn" class="secondary">Delete</button>
+            <div class="field">
+              <label for="baseUrl">Auth Base URL</label>
+              <select id="baseUrl"></select>
+            </div>
+            <div class="field">
+              <label for="protectedUrl">Protected API URL</label>
+              <input id="protectedUrl" value="http://localhost:3203/api/v1/public/profile" />
+            </div>
+          </div>
+          <div class="row">
+            <button id="loginBtn">Login</button>
+            <button id="profileBtn" class="outline">Call Profile</button>
+            <button id="refreshBtn" class="outline">Refresh Token</button>
+            <button id="logoutBtn" class="secondary">Logout</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-content" data-tab="ucan-multi">
+        <div class="section">
+          <h2>UCAN 登录（多后端）</h2>
+          <div class="hint">一次 Root UCAN 授权后，可对多个后端分别生成 Invocation UCAN 并访问。</div>
+          <div class="row">
+            <div class="field">
+              <label for="ucanAud">UCAN Audience</label>
+              <input id="ucanAud" value="did:web:localhost:3203" />
+            </div>
+            <div class="field">
+              <label for="ucanResource">UCAN Resource</label>
+              <input id="ucanResource" value="profile" />
+            </div>
+            <div class="field">
+              <label for="ucanAction">UCAN Action</label>
+              <input id="ucanAction" value="read" />
+            </div>
+          </div>
+          <div class="row">
+            <button id="ucanSessionBtn" class="secondary">Init UCAN Session</button>
+            <button id="ucanRootBtn" class="outline">Create Root UCAN</button>
+            <button id="ucanProfileBtn">Call UCAN Profile</button>
+            <button id="ucanAllBtn" class="outline">Call UCAN All</button>
+            <button id="ucanLogoutBtn" class="secondary">Logout</button>
+          </div>
+
+          <h3>Backends</h3>
+          <div class="backend-grid" id="backendList"></div>
+        </div>
+      </div>
+
+      <div class="tab-content" data-tab="ucan-dapp">
+        <div class="section">
+          <h2>DAPP 登录（UCAN）</h2>
+          <div class="hint">选择一种语言实现的后端，与 WebDAV 同时完成 UCAN 登录。</div>
+          <div class="row">
+            <div class="field">
+              <label for="dappBackend">DAPP Backend</label>
+              <select id="dappBackend"></select>
+            </div>
+            <div class="field">
+              <label for="dappProtectedUrl">Backend API URL</label>
+              <input id="dappProtectedUrl" value="http://localhost:3203/api/v1/public/profile" />
+            </div>
+            <div class="field">
+              <label for="dappAud">Backend Audience</label>
+              <input id="dappAud" value="did:web:localhost:3203" />
+            </div>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label for="dappResource">Backend Resource</label>
+              <input id="dappResource" value="profile" />
+            </div>
+            <div class="field">
+              <label for="dappAction">Backend Action</label>
+              <input id="dappAction" value="read" />
+            </div>
+            <div class="field">
+              <label> </label>
+              <div class="note">DAPP Tab 使用 UCAN Session + Root。</div>
+            </div>
+          </div>
+          <div class="row">
+            <button id="dappSessionBtn" class="secondary">Init UCAN Session</button>
+            <button id="dappRootBtn" class="outline">Create Root UCAN</button>
+            <button id="dappLoginBtn">DAPP Login</button>
+            <button id="dappProfileBtn" class="outline">Call Backend</button>
+            <button id="dappLogoutBtn" class="secondary">Logout</button>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>WebDAV 存储（UCAN）</h2>
+          <div class="hint">使用 UCAN token 访问 WebDAV（需服务端开启 UCAN）；首次操作会自动创建应用目录。</div>
+          <div class="row">
+            <div class="field">
+              <label for="webdavBase">WebDAV Base URL</label>
+              <input id="webdavBase" value="http://localhost:6065" />
+            </div>
+            <div class="field">
+              <label for="webdavPrefix">WebDAV Prefix</label>
+              <input id="webdavPrefix" value="/" />
+            </div>
+            <div class="field">
+              <label for="webdavAud">WebDAV Audience</label>
+              <input id="webdavAud" value="did:web:localhost:6065" />
+            </div>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label for="webdavResource">WebDAV Resource</label>
+              <input id="webdavResource" value="profile" />
+            </div>
+            <div class="field">
+              <label for="webdavAction">WebDAV Action</label>
+              <input id="webdavAction" value="read" />
+            </div>
+            <div class="field">
+              <label for="webdavAppId">App ID（映射为 /apps/&lt;appId&gt;）</label>
+              <input id="webdavAppId" value="web3-bs-demo" />
+            </div>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label for="webdavPath">File Path</label>
+              <input id="webdavPath" value="hello.txt" />
+            </div>
+            <div class="field">
+              <label for="webdavContent">Content</label>
+              <input id="webdavContent" value="Hello WebDAV" />
+            </div>
+          </div>
+          <div class="row">
+            <button id="webdavListBtn" class="outline">List</button>
+            <button id="webdavUploadBtn">Upload</button>
+            <button id="webdavDownloadBtn" class="outline">Download</button>
+            <button id="webdavDeleteBtn" class="secondary">Delete</button>
+          </div>
         </div>
       </div>
 
@@ -262,19 +421,27 @@
         <span>SIWE Token</span><div id="tokenStatus" class="copyable" title="点击复制">-</div>
         <span>UCAN Session</span><div id="ucanSessionStatus">-</div>
         <span>UCAN Token</span><div id="ucanTokenStatus" class="copyable" title="点击复制">-</div>
+        <span>WebDAV App Dir</span><div id="webdavDirStatus">-</div>
       </div>
 
       <div class="note" id="note">
         说明：请先执行 <code>npm run build</code>，确保 <code>dist/web3-bs.umd.js</code> 存在。
-        建议通过后端端口打开（如 <code>http://localhost:8001/examples/frontend/dapp.html</code>），以便同源 Cookie 刷新。
-        SIWE 使用上方单后端配置；UCAN 使用多后端列表或自定义 Audience。
-        UCAN 依赖钱包支持 Session 能力。
+        建议通过后端端口打开（如 <code>http://localhost:3203/dapp.html</code>），以便同源 Cookie 刷新。
+        若使用静态服务器，请确保 <code>http://localhost:8001/dapp.html</code> 可访问且 <code>/dist/web3-bs.umd.js</code> 存在。
+        单后端 SIWE、UCAN 多后端、DAPP + WebDAV 分在三个 Tab 页面。
+        SIWE 使用上方单后端配置；UCAN 使用多后端列表或自定义 Audience；DAPP 使用单后端 + WebDAV。
+        UCAN 依赖钱包支持 Session 能力；WebDAV 默认使用 DAPP Resource/Action（可单独覆盖）。
         点击 Token 即可复制完整值。
         若提示 No provider found，请确认安装 YeYing 钱包扩展并允许该站点访问。
       </div>
 
-      <h3>Log</h3>
-      <pre id="log"></pre>
+      </div>
+      </div>
+      <div class="log-pane">
+        <h3>Log</h3>
+        <pre id="log"></pre>
+      </div>
+    </div>
     </div>
 
     <script>
@@ -339,19 +506,28 @@
         const backendListEl = document.getElementById('backendList');
         const baseUrlInput = document.getElementById('baseUrl');
         const protectedUrlInput = document.getElementById('protectedUrl');
-        const messageInput = document.getElementById('message');
         const ucanAudInput = document.getElementById('ucanAud');
         const ucanResourceInput = document.getElementById('ucanResource');
         const ucanActionInput = document.getElementById('ucanAction');
+        const dappBackendInput = document.getElementById('dappBackend');
+        const dappProtectedUrlInput = document.getElementById('dappProtectedUrl');
+        const dappAudInput = document.getElementById('dappAud');
+        const dappResourceInput = document.getElementById('dappResource');
+        const dappActionInput = document.getElementById('dappAction');
         const webdavBaseInput = document.getElementById('webdavBase');
         const webdavPrefixInput = document.getElementById('webdavPrefix');
         const webdavAudInput = document.getElementById('webdavAud');
+        const webdavResourceInput = document.getElementById('webdavResource');
+        const webdavActionInput = document.getElementById('webdavAction');
+        const webdavAppIdInput = document.getElementById('webdavAppId');
         const webdavPathInput = document.getElementById('webdavPath');
         const webdavContentInput = document.getElementById('webdavContent');
+        const webdavDirStatus = document.getElementById('webdavDirStatus');
+        const tabButtons = Array.from(document.querySelectorAll('.tab-button'));
+        const tabContents = Array.from(document.querySelectorAll('.tab-content'));
 
         const detectBtn = document.getElementById('detectBtn');
         const connectBtn = document.getElementById('connectBtn');
-        const signBtn = document.getElementById('signBtn');
         const loginBtn = document.getElementById('loginBtn');
         const profileBtn = document.getElementById('profileBtn');
         const refreshBtn = document.getElementById('refreshBtn');
@@ -360,6 +536,12 @@
         const ucanRootBtn = document.getElementById('ucanRootBtn');
         const ucanProfileBtn = document.getElementById('ucanProfileBtn');
         const ucanAllBtn = document.getElementById('ucanAllBtn');
+        const ucanLogoutBtn = document.getElementById('ucanLogoutBtn');
+        const dappSessionBtn = document.getElementById('dappSessionBtn');
+        const dappRootBtn = document.getElementById('dappRootBtn');
+        const dappLoginBtn = document.getElementById('dappLoginBtn');
+        const dappProfileBtn = document.getElementById('dappProfileBtn');
+        const dappLogoutBtn = document.getElementById('dappLogoutBtn');
         const webdavListBtn = document.getElementById('webdavListBtn');
         const webdavUploadBtn = document.getElementById('webdavUploadBtn');
         const webdavDownloadBtn = document.getElementById('webdavDownloadBtn');
@@ -370,6 +552,8 @@
         let ucanRoot = null;
         let currentUcanToken = null;
         let webdavToken = null;
+        let webdavClient = null;
+        let webdavAppDir = null;
 
         const backendConfigs = [
           {
@@ -416,8 +600,23 @@
           });
         }
 
+        function renderDappOptions() {
+          if (!dappBackendInput) return;
+          dappBackendInput.textContent = '';
+          backendConfigs.forEach(config => {
+            const option = document.createElement('option');
+            option.value = config.id;
+            option.textContent = `${config.name} (${config.port})`;
+            dappBackendInput.appendChild(option);
+          });
+        }
+
         function findBackendByBaseUrl(value) {
           return backendConfigs.find(config => config.baseUrl === value);
+        }
+
+        function findBackendById(id) {
+          return backendConfigs.find(config => config.id === id);
         }
 
         function findBackendByOrigin(origin) {
@@ -439,6 +638,17 @@
         return true;
       }
 
+      function setActiveTab(tabId) {
+        tabButtons.forEach(button => {
+          const active = button.dataset.tab === tabId;
+          button.classList.toggle('active', active);
+        });
+        tabContents.forEach(panel => {
+          const active = panel.dataset.tab === tabId;
+          panel.classList.toggle('active', active);
+        });
+      }
+
       function shortenToken(token) {
         if (!token) return '-';
         if (token.length <= 16) return token;
@@ -458,12 +668,59 @@
         ucanTokenStatus.title = currentUcanToken ? '点击复制' : '-';
       }
 
-      function resolveCaps() {
-        return [{ resource: ucanResourceInput.value, action: ucanActionInput.value }];
+      function updateWebdavStatus() {
+        if (!webdavDirStatus) return;
+        webdavDirStatus.textContent = webdavAppDir || '-';
       }
 
-      function capsEqual(a, b) {
-        return JSON.stringify(a || []) === JSON.stringify(b || []);
+      function makeCap(resource, action) {
+        const res = (resource || '').trim();
+        const act = (action || '').trim();
+        if (!res || !act) return null;
+        return { resource: res, action: act };
+      }
+
+      function dedupeCaps(caps) {
+        const seen = new Set();
+        return (caps || []).filter(cap => {
+          if (!cap) return false;
+          const key = `${cap.resource}|${cap.action}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+      }
+
+      function resolveCapsFromInputs(resourceInput, actionInput) {
+        if (!resourceInput || !actionInput) return [];
+        const cap = makeCap(resourceInput.value, actionInput.value);
+        return cap ? [cap] : [];
+      }
+
+      function resolveUcanCaps() {
+        return resolveCapsFromInputs(ucanResourceInput, ucanActionInput);
+      }
+
+      function resolveDappCaps() {
+        return resolveCapsFromInputs(dappResourceInput, dappActionInput);
+      }
+
+      function resolveWebdavCaps() {
+        const cap = makeCap(webdavResourceInput.value, webdavActionInput.value);
+        if (cap) return [cap];
+        return resolveDappCaps();
+      }
+
+      function resolveDappRootCaps() {
+        return dedupeCaps([...resolveDappCaps(), ...resolveWebdavCaps()]);
+      }
+
+      function resolveWebdavPath(rawPath) {
+        const trimmed = (rawPath || '').trim();
+        if (!trimmed) return webdavAppDir || '/';
+        if (trimmed.startsWith('/')) return trimmed;
+        const base = webdavAppDir && webdavAppDir !== '/' ? webdavAppDir : '';
+        return `${base}/${trimmed}`;
       }
 
       async function ensureUcanSession() {
@@ -473,68 +730,75 @@
         return ucanSession;
       }
 
-      async function ensureUcanRoot() {
-        const { getStoredUcanRoot, createRootUcan } = window.YeYingWeb3;
+      async function ensureRootWithCaps(caps, label) {
+        const { getOrCreateUcanRoot } = window.YeYingWeb3;
         await ensureUcanSession();
-        const caps = resolveCaps();
-        const nowMs = Date.now();
-
-        if (ucanRoot && ucanSession && ucanRoot.aud && ucanRoot.aud !== ucanSession.did) {
-          log('Root UCAN session mismatch, re-creating');
-          ucanRoot = null;
+        if (!caps.length) {
+          log(label ? `Missing UCAN capabilities (${label})` : 'Missing UCAN capabilities');
+          return null;
         }
-
-        if (ucanRoot && !capsEqual(ucanRoot.cap, caps)) {
-          ucanRoot = null;
+        provider = provider || (await window.YeYingWeb3.getProvider({ timeoutMs: 3000 }));
+        if (!provider) {
+          log('No provider');
+          return null;
         }
-        if (ucanRoot && ucanRoot.exp && nowMs > ucanRoot.exp) {
-          ucanRoot = null;
-        }
-
-        if (!ucanRoot) {
-          const stored = await getStoredUcanRoot(ucanSession.id);
-          if (stored && (!stored.aud || stored.aud === ucanSession.did)) {
-            if (capsEqual(stored.cap, caps) && (!stored.exp || nowMs <= stored.exp)) {
-              ucanRoot = stored;
-            }
-          }
-        }
-
-        if (!ucanRoot) {
-          provider = provider || (await window.YeYingWeb3.getProvider({ timeoutMs: 3000 }));
-          if (!provider) {
-            log('No provider');
-            return null;
-          }
-          ucanRoot = await createRootUcan({
-            provider,
-            session: ucanSession,
-            capabilities: caps,
-          });
-          log('Root UCAN created', ucanRoot);
-        }
+        ucanRoot = await getOrCreateUcanRoot({
+          provider,
+          session: ucanSession,
+          capabilities: caps,
+        });
+        log(label ? `Root UCAN ready (${label})` : 'Root UCAN ready', ucanRoot);
 
         updateUcanStatus();
         return ucanRoot;
       }
 
-      async function callUcanProtected(target) {
+      async function ensureUcanRoot() {
+        return await ensureRootWithCaps(resolveUcanCaps(), 'multi');
+      }
+
+      async function ensureDappRoot() {
+        return await ensureRootWithCaps(resolveDappRootCaps(), 'dapp');
+      }
+
+      async function createInvocationToken(options) {
         const { createInvocationUcan } = window.YeYingWeb3;
-        const caps = resolveCaps();
-        const root = await ensureUcanRoot();
-        if (!root) return;
+        if (!options?.audience) {
+          log('Missing UCAN audience');
+          return;
+        }
+        const caps = options.capabilities || [];
+        if (!caps.length) {
+          log(options.label ? `Missing UCAN capabilities (${options.label})` : 'Missing UCAN capabilities');
+          return null;
+        }
+        const rootCaps = options.rootCaps || caps;
+        const root = await ensureRootWithCaps(rootCaps, options.label);
+        if (!root) return null;
         currentUcanToken = await createInvocationUcan({
           issuer: ucanSession,
-          audience: target.ucanAud,
+          audience: options.audience,
           capabilities: caps,
           proofs: [root],
         });
         updateUcanStatus();
+        return currentUcanToken;
+      }
+
+      async function callUcanProtected(target, options = {}) {
+        const caps = options.capabilities || resolveUcanCaps();
+        const token = await createInvocationToken({
+          audience: target.ucanAud,
+          capabilities: caps,
+          rootCaps: options.rootCaps,
+          label: options.label,
+        });
+        if (!token) return;
 
         const res = await fetch(target.protectedUrl, {
           method: 'GET',
           headers: {
-            Authorization: `Bearer ${currentUcanToken}`,
+            Authorization: `Bearer ${token}`,
           },
         });
         let payload = null;
@@ -543,36 +807,71 @@
         } catch {
           payload = { status: res.status };
         }
-        log(`UCAN profile (${target.name})`, payload);
+        const prefix = options.logPrefix || 'UCAN profile';
+        log(`${prefix} (${target.name})`, payload);
       }
 
-      async function ensureWebdavToken() {
-        const { createInvocationUcan } = window.YeYingWeb3;
-        const caps = resolveCaps();
-        const root = await ensureUcanRoot();
-        if (!root) return null;
-        webdavToken = await createInvocationUcan({
-          issuer: ucanSession,
+      async function ensureWebdavStorage() {
+        const { initWebDavStorage } = window.YeYingWeb3;
+        const rootCaps = resolveDappRootCaps();
+        const webdavCaps = resolveWebdavCaps();
+        if (!webdavCaps.length) {
+          log('Missing WebDAV capabilities');
+          return null;
+        }
+        provider = provider || (await window.YeYingWeb3.getProvider({ timeoutMs: 3000 }));
+        if (!provider) {
+          log('No provider');
+          return null;
+        }
+        const result = await initWebDavStorage({
+          baseUrl: webdavBaseInput.value,
+          prefix: webdavPrefixInput.value,
           audience: webdavAudInput.value,
-          capabilities: caps,
-          proofs: [root],
+          appId: webdavAppIdInput.value,
+          capabilities: rootCaps.length ? rootCaps : webdavCaps,
+          invocationCapabilities: webdavCaps,
+          provider,
+          session: ucanSession || undefined,
+          root: ucanRoot || undefined,
         });
+        webdavClient = result.client;
+        webdavToken = result.token;
+        webdavAppDir = result.appDir;
+        ucanSession = result.session;
+        ucanRoot = result.root;
         currentUcanToken = webdavToken;
         updateUcanStatus();
-        log('WebDAV UCAN created', { audience: webdavAudInput.value });
-        return webdavToken;
+        updateWebdavStatus();
+        log('WebDAV storage ready', { appDir: webdavAppDir });
+        return webdavClient;
       }
 
       async function getWebdavClient() {
         if (!ensureSDK()) return null;
-        const { createWebDavClient } = window.YeYingWeb3;
-        const token = webdavToken || (await ensureWebdavToken());
-        if (!token) return null;
-        return createWebDavClient({
-          baseUrl: webdavBaseInput.value,
-          prefix: webdavPrefixInput.value,
-          token,
-        });
+        return await ensureWebdavStorage();
+      }
+
+      async function clearUcanState(options = {}) {
+        if (!ensureSDK()) return;
+        const { clearUcanSession } = window.YeYingWeb3;
+        if (clearUcanSession) {
+          try {
+            await clearUcanSession();
+          } catch (error) {
+            log('Clear UCAN session failed', { error: String(error) });
+          }
+        }
+        ucanSession = null;
+        ucanRoot = null;
+        currentUcanToken = null;
+        if (options.clearWebdav) {
+          webdavToken = null;
+          webdavClient = null;
+          webdavAppDir = null;
+          updateWebdavStatus();
+        }
+        updateUcanStatus();
       }
 
       function applyBackend(config, options = {}) {
@@ -584,6 +883,16 @@
         }
         if (!options.silent) {
           log('Backend selected', config);
+        }
+      }
+
+      function applyDappBackend(config, options = {}) {
+        if (!config || !dappBackendInput) return;
+        dappBackendInput.value = config.id;
+        dappProtectedUrlInput.value = config.protectedUrl;
+        dappAudInput.value = config.ucanAud;
+        if (!options.silent) {
+          log('DAPP backend selected', config);
         }
       }
 
@@ -623,11 +932,13 @@
         const matched = findBackendByOrigin(origin);
         if (matched) {
           applyBackend(matched, { silent: true });
+          applyDappBackend(matched, { silent: true });
           return;
         }
         const fallback = backendConfigs.find(config => config.id === 'node') || backendConfigs[0];
         if (fallback) {
           applyBackend(fallback, { silent: true });
+          applyDappBackend(fallback, { silent: true });
         }
       }
 
@@ -642,6 +953,10 @@
           providerStatus.textContent = 'Not detected';
           log('No provider found');
         }
+      });
+
+      tabButtons.forEach(button => {
+        button.addEventListener('click', () => setActiveTab(button.dataset.tab));
       });
 
       connectBtn.addEventListener('click', async () => {
@@ -665,20 +980,6 @@
           chainStatus.textContent = next;
           log('chainChanged', next);
         });
-      });
-
-      signBtn.addEventListener('click', async () => {
-        if (!ensureSDK()) return;
-        const { signMessage } = window.YeYingWeb3;
-        provider = provider || (await window.YeYingWeb3.getProvider({ timeoutMs: 3000 }));
-        if (!provider) return log('No provider');
-
-        const signature = await signMessage({
-          provider,
-          message: messageInput.value,
-        });
-
-        log('Signature', signature);
       });
 
       loginBtn.addEventListener('click', async () => {
@@ -751,10 +1052,7 @@
 
       ucanRootBtn.addEventListener('click', async () => {
         if (!ensureSDK()) return;
-        const root = await ensureUcanRoot();
-        if (root) {
-          log('Root UCAN ready', root);
-        }
+        await ensureUcanRoot();
       });
 
       ucanProfileBtn.addEventListener('click', async () => {
@@ -773,36 +1071,94 @@
         }
       });
 
+      ucanLogoutBtn.addEventListener('click', async () => {
+        await clearUcanState({ clearWebdav: true });
+        log('UCAN logout');
+      });
+
+      dappSessionBtn.addEventListener('click', async () => {
+        if (!ensureSDK()) return;
+        await ensureUcanSession();
+        log('DAPP UCAN session ready', ucanSession);
+      });
+
+      dappRootBtn.addEventListener('click', async () => {
+        if (!ensureSDK()) return;
+        await ensureDappRoot();
+      });
+
+      dappLoginBtn.addEventListener('click', async () => {
+        if (!ensureSDK()) return;
+        const caps = resolveDappCaps();
+        const token = await createInvocationToken({
+          audience: dappAudInput.value,
+          capabilities: caps,
+          rootCaps: resolveDappRootCaps(),
+          label: 'dapp',
+        });
+        if (token) {
+          log('DAPP UCAN token ready', { audience: dappAudInput.value });
+        }
+        try {
+          await ensureWebdavStorage();
+        } catch (error) {
+          log('WebDAV init failed', { error: String(error) });
+        }
+      });
+
+      dappProfileBtn.addEventListener('click', async () => {
+        if (!ensureSDK()) return;
+        await callUcanProtected({
+          name: 'DAPP Backend',
+          protectedUrl: dappProtectedUrlInput.value,
+          ucanAud: dappAudInput.value,
+        }, {
+          capabilities: resolveDappCaps(),
+          rootCaps: resolveDappRootCaps(),
+          label: 'dapp',
+          logPrefix: 'DAPP profile',
+        });
+      });
+
+      dappLogoutBtn.addEventListener('click', async () => {
+        await clearUcanState({ clearWebdav: true });
+        log('DAPP logout');
+      });
+
       webdavListBtn.addEventListener('click', async () => {
         if (!ensureSDK()) return;
         const client = await getWebdavClient();
         if (!client) return;
-        const listing = await client.listDirectory('/');
-        log('WebDAV list', listing);
+        const targetPath = webdavAppDir || '/';
+        const listing = await client.listDirectory(targetPath);
+        log('WebDAV list', { path: targetPath, listing });
       });
 
       webdavUploadBtn.addEventListener('click', async () => {
         if (!ensureSDK()) return;
         const client = await getWebdavClient();
         if (!client) return;
-        await client.upload(webdavPathInput.value, webdavContentInput.value);
-        log('WebDAV upload ok', { path: webdavPathInput.value });
+        const path = resolveWebdavPath(webdavPathInput.value);
+        await client.upload(path, webdavContentInput.value);
+        log('WebDAV upload ok', { path });
       });
 
       webdavDownloadBtn.addEventListener('click', async () => {
         if (!ensureSDK()) return;
         const client = await getWebdavClient();
         if (!client) return;
-        const content = await client.downloadText(webdavPathInput.value);
-        log('WebDAV download', { path: webdavPathInput.value, content });
+        const path = resolveWebdavPath(webdavPathInput.value);
+        const content = await client.downloadText(path);
+        log('WebDAV download', { path, content });
       });
 
       webdavDeleteBtn.addEventListener('click', async () => {
         if (!ensureSDK()) return;
         const client = await getWebdavClient();
         if (!client) return;
-        await client.remove(webdavPathInput.value);
-        log('WebDAV delete ok', { path: webdavPathInput.value });
+        const path = resolveWebdavPath(webdavPathInput.value);
+        await client.remove(path);
+        log('WebDAV delete ok', { path });
       });
 
       async function copyToken() {
@@ -856,10 +1212,21 @@
         }
       });
 
+      if (dappBackendInput) {
+        dappBackendInput.addEventListener('change', () => {
+          const selected = findBackendById(dappBackendInput.value);
+          if (selected) {
+            applyDappBackend(selected);
+          }
+        });
+      }
+
       renderAuthOptions();
+      renderDappOptions();
       const defaultBackend = backendConfigs.find(config => config.id === 'node') || backendConfigs[0];
       if (defaultBackend) {
         applyBackend(defaultBackend, { silent: true });
+        applyDappBackend(defaultBackend, { silent: true });
       }
       renderBackends();
       setDefaultsFromLocation();

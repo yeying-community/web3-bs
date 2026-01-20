@@ -23,13 +23,20 @@ const multiPorts = [3201, 3202, 3203, 3204];
 const defaultOrigins = [
   `http://localhost:${PORT}`,
   `http://127.0.0.1:${PORT}`,
+  `http://[::]:${PORT}`,
   'http://localhost:8000',
   'http://127.0.0.1:8000',
+  'http://[::]:8000',
   'http://localhost:8001',
   'http://127.0.0.1:8001',
+  'http://[::]:8001',
 ];
 multiPorts.forEach(port => {
-  defaultOrigins.push(`http://localhost:${port}`, `http://127.0.0.1:${port}`);
+  defaultOrigins.push(
+    `http://localhost:${port}`,
+    `http://127.0.0.1:${port}`,
+    `http://[::]:${port}`
+  );
 });
 
 const allowedOrigins = new Set(
