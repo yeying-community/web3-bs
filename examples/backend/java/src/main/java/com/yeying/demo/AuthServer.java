@@ -686,7 +686,7 @@ public class AuthServer {
       JsonObject payload = verified.payload;
       String aud = getString(payload, "aud");
       if (!currentDid.equals(aud)) {
-        throw new IllegalArgumentException("UCAN audience mismatch");
+        throw new IllegalArgumentException(String.format("UCAN audience mismatch expected=%s got=%s", currentDid, aud));
       }
       List<UcanCapability> cap = parseCapabilities(payload.get("cap"));
       if (!capsAllow(cap, requiredCap)) {
@@ -751,7 +751,7 @@ public class AuthServer {
     );
     String aud = getString(payload, "aud");
     if (!UCAN_AUD.equals(aud)) {
-      throw new IllegalArgumentException("UCAN audience mismatch");
+      throw new IllegalArgumentException(String.format("UCAN audience mismatch expected=%s got=%s", UCAN_AUD, aud));
     }
     List<UcanCapability> cap = parseCapabilities(payload.get("cap"));
     List<UcanCapability> required = new ArrayList<>();

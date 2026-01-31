@@ -1,6 +1,6 @@
 {
   "name": "@yeying-community/web3-bs",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "author": "yeying.community@gmail.com",
   "description": "YeYing injected wallet SDK (browser-only, EIP-1193)",
   "module": "dist/web3-bs.esm.js",

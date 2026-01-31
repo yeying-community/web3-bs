@@ -248,7 +248,7 @@ def verify_proof_chain(current_did: str, required_caps, required_exp, proofs):
     if isinstance(first, str):
         payload, exp = verify_ucan_jws(first)
         if payload.get("aud") != current_did:
-            raise ValueError("UCAN audience mismatch")
+            raise ValueError(f"UCAN audience mismatch expected={current_did} got={payload.get('aud')}")
         if not caps_allow(payload.get("cap") or [], required_caps):
             raise ValueError("UCAN capability denied")
         if exp and required_exp and exp < required_exp:
@@ -286,7 +286,7 @@ def verify_ucan_invocation(token: str):
         len(payload.get("prf") or []),
     )
     if payload.get("aud") != UCAN_AUD:
-        raise ValueError("UCAN audience mismatch")
+        raise ValueError(f"UCAN audience mismatch expected={UCAN_AUD} got={payload.get('aud')}")
     if not caps_allow(payload.get("cap") or [], REQUIRED_UCAN_CAP):
         raise ValueError("UCAN capability denied")
     root = verify_proof_chain(payload.get("iss"), payload.get("cap") or [], exp, payload.get("prf") or [])

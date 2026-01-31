@@ -344,7 +344,7 @@ function verifyProofChain(currentDid, requiredCap, requiredExp, proofs) {
   if (typeof first === 'string') {
     const { payload, exp } = verifyUcanJws(first);
     if (payload.aud !== currentDid) {
-      throw new Error('UCAN audience mismatch');
+      throw new Error(`UCAN audience mismatch expected=${currentDid} got=${payload.aud || ''}`);
     }
     const proofExp = normalizeEpochMillis(payload.exp) || exp;
     if (!capsAllow(payload.cap || [], requiredCap)) {
@@ -391,7 +391,7 @@ function verifyUcanInvocation(token) {
     proofs: Array.isArray(payload.prf) ? payload.prf.length : 0,
   });
   if (payload.aud !== UCAN_AUD) {
-    throw new Error('UCAN audience mismatch');
+    throw new Error(`UCAN audience mismatch expected=${UCAN_AUD} got=${payload.aud || ''}`);
   }
   if (!capsAllow(payload.cap || [], [REQUIRED_UCAN_CAP])) {
     throw new Error('UCAN capability denied');

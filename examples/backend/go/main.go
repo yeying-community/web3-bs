@@ -474,7 +474,7 @@ func verifyProofChain(currentDid string, required []ucanCapability, requiredExp 
 			return "", err
 		}
 		if payload.Aud != currentDid {
-			return "", fmt.Errorf("UCAN audience mismatch")
+			return "", fmt.Errorf("UCAN audience mismatch expected=%s got=%s", currentDid, payload.Aud)
 		}
 		if !capsAllow(payload.Cap, required) {
 			return "", fmt.Errorf("UCAN capability denied")
@@ -538,7 +538,7 @@ func verifyUcanInvocation(token string, expectedAud string, required []ucanCapab
 	}
 	log.Printf("UCAN invocation token=%s iss=%s aud=%s exp=%d caps=%v proofs=%d", preview(token), payload.Iss, payload.Aud, exp, summarizeCaps(payload.Cap), len(payload.Prf))
 	if payload.Aud != expectedAud {
-		return "", fmt.Errorf("UCAN audience mismatch")
+		return "", fmt.Errorf("UCAN audience mismatch expected=%s got=%s", expectedAud, payload.Aud)
 	}
 	if !capsAllow(payload.Cap, required) {
 		return "", fmt.Errorf("UCAN capability denied")
