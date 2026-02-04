@@ -480,8 +480,10 @@ OpenAPI 规范：`docs/openapi.yaml`
 - 若使用 UCAN 鉴权：
   - 服务端需接受 `Authorization: Bearer <UCAN>`。
   - `audience` 要与服务端配置一致（例如 `did:web:127.0.0.1:6065`）。
-  - `capabilities` 需匹配服务端策略（`resource` / `action`）。
-- `prefix` 为可选的 WebDAV 前缀；`appId` 默认映射为 `/apps/<appId>`。
+  - `capabilities` 需匹配服务端 UCAN 策略（`web3.ucan.required_resource` / `required_action`）。
+    - WebDAV 推荐以 `app:<appId>` 作为核心能力（不要用 `app:*`）。
+    - 只读场景（`required_action=read`）请用 `appAction: 'read'` 或 `action: 'read'`。
+- `prefix` 为可选的 WebDAV 前缀；`appId` 默认映射为 `/apps/<appId>`（若服务端修改了 `app_scope.path_prefix`，请用 `appDir` 对齐）。
 - 若要使用配额与回收站相关方法，服务端需提供以下 JSON 接口：
   - `GET /api/v1/public/webdav/quota`
   - `GET /api/v1/public/webdav/recycle/list`
@@ -495,11 +497,13 @@ OpenAPI 规范：`docs/openapi.yaml`
 ### 9.2 本地测试示例参数
 
 ```ts
+const appId = window.location.host || '127.0.0.1:8001';
+
 const webdav = await initWebDavStorage({
   baseUrl: 'http://127.0.0.1:6065',
   audience: 'did:web:127.0.0.1:6065',
-  appId: 'web3-bs-demo',
-  capabilities: [{ resource: 'profile', action: 'read' }],
+  appId,
+  capabilities: [{ resource: `app:${appId}`, action: 'write' }],
 });
 ```
 
@@ -528,11 +532,13 @@ await client.upload('/docs/hello.txt', 'Hello WebDAV');
 const content = await client.downloadText('/docs/hello.txt');
 
 // UCAN 登录 + 自动创建应用目录（推荐）
+const appId = window.location.host || '127.0.0.1:8001';
+
 const storage = await initWebDavStorage({
   baseUrl: 'http://127.0.0.1:6065',
   audience: 'did:web:127.0.0.1:6065',
-  appId: 'my-dapp',
-  capabilities: [{ resource: 'profile', action: 'read' }],
+  appId,
+  capabilities: [{ resource: `app:${appId}`, action: 'write' }],
 });
 await storage.client.upload(`${storage.appDir}/hello.txt`, 'Hello WebDAV');
 ```
@@ -548,7 +554,7 @@ await storage.client.upload(`${storage.appDir}/hello.txt`, 'Hello WebDAV');
 - `copy(path, destination, overwrite?)`
 - `getQuota()` / `listRecycle()` / `recoverRecycle(hash)` / `deleteRecycle(hash)` / `clearRecycle()`
 
-提示：`capabilities` 需与 WebDAV 后端 UCAN 策略一致；`appId` 默认映射为 `/apps/<appId>`。
+提示：`capabilities` 需与 WebDAV 后端 UCAN 策略一致，推荐 `app:<appId>`；`appId` 默认映射为 `/apps/<appId>`（建议使用前端域名或 IP:端口）。如服务端修改了 `app_scope.path_prefix`，请传 `appDir` 对齐。
 
 ## 10. Dapp 快速接入（推荐）
 
@@ -556,6 +562,8 @@ await storage.client.upload(`${storage.appDir}/hello.txt`, 'Hello WebDAV');
 
 ```ts
 import { initDappSession } from '@yeying-community/web3-bs';
+
+const appId = window.location.host || '127.0.0.1:8001';
 
 const session = await initDappSession({
   appAuth: {
@@ -565,8 +573,8 @@ const session = await initDappSession({
   webdav: {
     baseUrl: 'http://127.0.0.1:6065',
     audience: 'did:web:127.0.0.1:6065',
-    appId: 'my-dapp',
-    capabilities: [{ resource: 'profile', action: 'read' }],
+    appId,
+    capabilities: [{ resource: `app:${appId}`, action: 'write' }],
   },
 });
 

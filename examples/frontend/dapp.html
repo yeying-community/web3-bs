@@ -432,7 +432,7 @@
 
           <div class="section">
           <h2>WebDAV 存储（UCAN）</h2>
-          <div class="hint">使用 UCAN token 访问 WebDAV（需服务端开启 UCAN）；首次操作会自动创建应用目录。资源建议用 app:&lt;appId&gt;，appId 建议为前端地址。</div>
+          <div class="hint">使用 UCAN token 访问 WebDAV（需服务端开启 UCAN）；首次操作会自动创建应用目录。资源建议用 app:&lt;appId&gt;，appId 建议使用前端域名或 IP:端口。</div>
           <div class="row">
             <div class="field">
               <label for="webdavBase">WebDAV Base URL</label>
@@ -449,7 +449,7 @@
           </div>
           <div class="row">
             <div class="field">
-              <label for="webdavResource">WebDAV Resource（建议 app:&lt;appId&gt;）</label>
+              <label for="webdavResource">WebDAV Resource（推荐 app:&lt;appId&gt;，不要用 app:*）</label>
               <input id="webdavResource" value="app:127.0.0.1:8001" />
             </div>
             <div class="field">
@@ -457,7 +457,7 @@
               <input id="webdavAction" value="write" />
             </div>
             <div class="field">
-              <label for="webdavAppId">App ID（建议为前端地址，映射为 /apps/&lt;appId&gt;）</label>
+              <label for="webdavAppId">App ID（推荐前端域名或 IP:端口，映射为 /apps/&lt;appId&gt;）</label>
               <input id="webdavAppId" value="127.0.0.1:8001" />
             </div>
           </div>
@@ -1056,10 +1056,12 @@
         }
         const host = location.host || '';
         if (host) {
-          if (webdavAppIdInput && (webdavAppIdInput.value === '127.0.0.1:8001' || webdavAppIdInput.value === '')) {
+          const appIdPlaceholders = ['', '127.0.0.1', '127.0.0.1:8001'];
+          if (webdavAppIdInput && appIdPlaceholders.includes(webdavAppIdInput.value)) {
             webdavAppIdInput.value = host;
           }
-          if (webdavResourceInput && (webdavResourceInput.value === 'app:127.0.0.1:8001' || webdavResourceInput.value === '')) {
+          const resourcePlaceholders = ['', 'app:127.0.0.1', 'app:127.0.0.1:8001'];
+          if (webdavResourceInput && resourcePlaceholders.includes(webdavResourceInput.value)) {
             webdavResourceInput.value = `app:${host}`;
           }
         }

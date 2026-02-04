@@ -108,6 +108,7 @@ UCAN 相关环境变量（可选）：
 - `UCAN_AUD`：服务 DID（默认 `did:web:127.0.0.1:<PORT>`）
 - `UCAN_RESOURCE`：资源（默认 `profile`）
 - `UCAN_ACTION`：动作（默认 `read`）
+  - WebDAV 场景建议：`UCAN_RESOURCE=app:<appId>`，`UCAN_ACTION=read,write`，其中 `appId` 使用前端域名或 IP:端口。
 
 多后端联调注意：
 - 访问不同端口的后端时，请将前端 Origin 加入 `CORS_ORIGINS`

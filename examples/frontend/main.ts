@@ -21,7 +21,7 @@ async function connectAndLogin() {
     throw new Error('No account returned');
   }
 
-  const appId = 'demo.example.com';
+  const appId = typeof window !== 'undefined' ? window.location.host || '127.0.0.1:8001' : '127.0.0.1:8001';
   const appCap = { resource: `app:${appId}`, action: 'write' };
   const profileCap = { resource: 'profile', action: 'read' };
 

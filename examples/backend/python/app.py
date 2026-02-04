@@ -29,6 +29,7 @@ COOKIE_SAMESITE = {
 }.get(COOKIE_SAMESITE_RAW, "Lax")
 COOKIE_SECURE = os.getenv("COOKIE_SECURE", "").lower() in ("1", "true", "yes")
 UCAN_AUD = os.getenv("UCAN_AUD", f"did:web:127.0.0.1:{PORT}")
+# Recommended: UCAN_RESOURCE=app:<appId> and UCAN_ACTION=read,write; appId = frontend domain or IP:port.
 UCAN_RESOURCE = os.getenv("UCAN_RESOURCE", "profile")
 UCAN_ACTION = os.getenv("UCAN_ACTION", "read")
 REQUIRED_UCAN_CAP = [{"resource": UCAN_RESOURCE, "action": UCAN_ACTION}]

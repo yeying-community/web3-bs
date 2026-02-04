@@ -50,6 +50,7 @@ public class AuthServer {
 
   private static final int PORT = (int) getEnvLong("PORT", 3202);
   private static final String UCAN_AUD = getEnv("UCAN_AUD", "did:web:127.0.0.1:" + PORT);
+  // Recommended: UCAN_RESOURCE=app:<appId> and UCAN_ACTION=read,write; appId = frontend domain or IP:port.
   private static final String UCAN_RESOURCE = getEnv("UCAN_RESOURCE", "profile");
   private static final String UCAN_ACTION = getEnv("UCAN_ACTION", "read");
   private static final UcanCapability REQUIRED_UCAN_CAP = new UcanCapability(UCAN_RESOURCE, UCAN_ACTION);

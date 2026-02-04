@@ -640,6 +640,7 @@ func main() {
 	cookieSameSite := strings.ToLower(getenv("COOKIE_SAMESITE", "lax"))
 	cookieSecure := parseBoolEnv("COOKIE_SECURE")
 	ucanAud := getenv("UCAN_AUD", fmt.Sprintf("did:web:127.0.0.1:%d", port))
+	// Recommended: UCAN_RESOURCE=app:<appId> and UCAN_ACTION=read,write; appId = frontend domain or IP:port.
 	ucanResource := getenv("UCAN_RESOURCE", "profile")
 	ucanAction := getenv("UCAN_ACTION", "read")
 	requiredUcanCap := []ucanCapability{{Resource: ucanResource, Action: ucanAction}}

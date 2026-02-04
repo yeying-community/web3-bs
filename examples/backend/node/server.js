@@ -16,6 +16,7 @@ const REFRESH_TTL_MS = Number(process.env.REFRESH_TTL_MS || 7 * 24 * 60 * 60 * 1
 const COOKIE_SAMESITE = (process.env.COOKIE_SAMESITE || 'lax').toLowerCase();
 const COOKIE_SECURE = String(process.env.COOKIE_SECURE || '').toLowerCase() === 'true';
 const UCAN_AUD = process.env.UCAN_AUD || `did:web:127.0.0.1:${PORT}`;
+// Recommended: UCAN_RESOURCE=app:<appId> and UCAN_ACTION=read,write; appId = frontend domain or IP:port.
 const UCAN_RESOURCE = process.env.UCAN_RESOURCE || 'profile';
 const UCAN_ACTION = process.env.UCAN_ACTION || 'read';
 
