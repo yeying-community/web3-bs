@@ -476,7 +476,8 @@ OpenAPI 规范：`docs/openapi.yaml`
 
 ### 9.1 服务端配置要点（用于本地测试）
 
-- WebDAV 服务需可访问（`baseUrl` 指向服务根地址），并支持标准方法：`PROPFIND` / `MKCOL` / `PUT` / `GET` / `DELETE` / `MOVE` / `COPY`。
+- WebDAV 服务需可访问（`baseUrl` 仅填写服务根地址，不包含任何路径），并支持标准方法：`PROPFIND` / `MKCOL` / `PUT` / `GET` / `DELETE` / `MOVE` / `COPY`。
+  - 路径前缀请通过 `prefix` 指定（例如服务挂载在 `/dav`，则 `baseUrl=https://webdav.example.com`、`prefix=/dav`）。
 - 若使用 UCAN 鉴权：
   - 服务端需接受 `Authorization: Bearer <UCAN>`。
   - `audience` 要与服务端配置一致（例如 `did:web:127.0.0.1:6065`）。
