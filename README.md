@@ -103,6 +103,7 @@ npm install @yeying-community/web3-bs
 
 排查与解决：
 - 确认 `baseUrl` 指向 WebDAV 服务（默认 `http://127.0.0.1:6065`），不要误用 320x 认证后端。
+- `baseUrl` 不应包含任何路径；若服务挂载在子路径，请用 `prefix` 指定（例如 `/dav`）。
 - `audience` 必须与 WebDAV 服务端 `web3.ucan.audience` 一致（例如 `did:web:127.0.0.1:6065`）。
 - `capabilities` 与服务端要求一致（`web3.ucan.required_resource` / `required_action`，或环境变量 `WEBDAV_UCAN_RESOURCE` / `WEBDAV_UCAN_ACTION`）。
   - WebDAV 推荐使用 `app:<appId>#read|write`，不要用 `app:*`；`appId` 建议使用前端域名或 IP:端口。
