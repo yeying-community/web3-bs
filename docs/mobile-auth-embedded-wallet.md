@@ -1,0 +1,59 @@
+# 方案 B：嵌入式钱包 / 托管或 MPC 钱包（移动端无插件签名）
+
+## 1. 适用场景
+
+- 想要移动端 Web 无插件、仍能签名
+- 可以接受第三方钱包 SDK 或托管/MPC
+
+## 2. 核心思路
+
+在移动端 Web 集成嵌入式钱包 SDK，获得 EIP-1193 Provider 能力。
+
+两种落地路径：
+- **B1：钱包 SDK 支持 YeYing UCAN RPC** → 可保留 UCAN
+- **B2：钱包 SDK 仅提供 `personal_sign`** → 只能 SIWE/JWT
+
+## 3. 详细落地流程（B1：支持 UCAN RPC）
+
+1) 嵌入式钱包完成账户初始化
+2) 获取 Provider
+3) UCAN 流程（同 PC）：
+   - `createUcanSession` / `getOrCreateUcanRoot` / `createInvocationUcan`
+4) 多后端访问：Bearer UCAN
+5) WebDAV：`initWebDavStorage`
+
+## 4. 详细落地流程（B2：仅 SIWE/JWT）
+
+1) 嵌入式钱包完成账户初始化
+2) `personal_sign` 完成 SIWE
+3) 后端签发 JWT
+4) SDK 用 JWT 访问多后端 + WebDAV
+
+```ts
+import { setAccessToken, authFetch, createWebDavClient } from '@yeying-community/web3-bs';
+
+setAccessToken(token, { storeToken: true });
+const res = await authFetch('https://api.example.com/api/v1/public/profile');
+
+const appId = window.location.host || '127.0.0.1:8001';
+const webdav = createWebDavClient({
+  baseUrl: 'https://webdav.example.com',
+  prefix: '/dav',
+  token,
+});
+await webdav.upload(`/apps/${appId}/hello.txt`, 'Hello');
+```
+
+## 5. 后端改造清单
+
+- UCAN 模式：不改（若钱包支持 UCAN RPC）
+- JWT 模式：统一验证 JWT
+
+## 6. 风险与注意
+
+- 嵌入式钱包有合规与成本
+- 依赖第三方 SDK 可用性
+
+## 7. 结论
+
+如果你希望移动端无插件且仍保留链上身份，这是最可控方案，但引入外部钱包 SDK 与成本。

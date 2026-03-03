@@ -1,0 +1,43 @@
+# 方案 F：传统账号体系（手机号/邮箱 + 2FA）→ JWT
+
+## 1. 适用场景
+
+- 业务不要求链上身份
+- 期望最简单、稳定的移动端登录
+
+## 2. 核心思路
+
+使用传统账号体系（短信/邮箱 + 2FA）登录，后端签发 JWT，多后端统一验证。
+
+## 3. 详细落地流程
+
+1) 用户注册/登录
+2) 后端签发 JWT/Session
+3) 各后端统一验证 JWT
+4) WebDAV 使用 JWT Bearer
+
+## 4. 前端使用本库（JWT 模式）
+
+```ts
+import { setAccessToken, authFetch, createWebDavClient } from '@yeying-community/web3-bs';
+
+setAccessToken(token, { storeToken: true });
+const res = await authFetch('https://api.example.com/api/v1/public/profile');
+
+const appId = window.location.host || '127.0.0.1:8001';
+const webdav = createWebDavClient({
+  baseUrl: 'https://webdav.example.com',
+  prefix: '/dav',
+  token,
+});
+await webdav.upload(`/apps/${appId}/hello.txt`, 'Hello');
+```
+
+## 5. 优缺点
+
+- **优点**：实现简单、移动端体验好
+- **缺点**：完全脱离链上身份
+
+## 6. 结论
+
+若不依赖 Web3 身份，这是成本最低、最稳的方案。
