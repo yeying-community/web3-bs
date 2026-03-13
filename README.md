@@ -8,6 +8,7 @@
 - 默认优先 YeYing Wallet
 - 内置 `signMessage` / `loginWithChallenge` / `refresh` / `logout` 等方法
 - 支持 UCAN Session + SIWE Bridge，用于多后端授权
+- 支持中心化 UCAN Demo API：`createCentralSession` / `issueCentralUcan` / `authCentralUcanFetch`
 
 ## 安装
 
@@ -20,6 +21,7 @@ npm install @yeying-community/web3-bs
 ## 示例
 
 - Frontend Dapp (HTML): `examples/frontend/dapp.html`
+- Frontend Mobile Central UCAN Demo: `examples/frontend/mobile-central-ucan.html`
 - Frontend Dapp (TS module): `examples/frontend/main.ts`
 - Backend server (Node): `examples/backend/node/server.js`
 - Backend server (Go): `examples/backend/go/main.go`
