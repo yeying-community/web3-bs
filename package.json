@@ -2,7 +2,7 @@
   "name": "@yeying-community/web3-bs",
   "version": "1.0.5",
   "author": "yeying.community@gmail.com",
-  "description": "YeYing injected wallet SDK (browser-only, EIP-1193)",
+  "description": "Browser-side DApp access SDK for EIP-1193, SIWE, UCAN, central UCAN and WebDAV",
   "module": "dist/web3-bs.esm.js",
   "browser": "dist/web3-bs.umd.js",
   "types": "dist/index.d.ts",

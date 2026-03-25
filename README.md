@@ -1,7 +1,7 @@
-# YeYing Inject Wallet SDK
+# YeYing Browser DApp Access SDK
 
-轻量级注入钱包 SDK，专注浏览器端 EIP-1193 Provider。默认优先选择 YeYing Wallet（支持 EIP-6963 多钱包发现）。
-仅支持浏览器环境（依赖 `window` / `localStorage` / `fetch`）。
+浏览器端 DApp 接入 SDK，用于统一封装 EIP-1193 Provider 发现、SIWE 登录、UCAN 多后端授权、中心化 UCAN 和 WebDAV 存储接入。
+默认优先选择 YeYing Wallet（支持 EIP-6963 多钱包发现），仅支持浏览器环境（依赖 `window` / `localStorage` / `fetch`）。
 
 功能要点：
 - 浏览器端 EIP-1193 Provider 辅助库
@@ -17,6 +17,10 @@ npm install @yeying-community/web3-bs
 ```
 
 更多集成与流程说明见 `docs/sdk-design.md`。
+推荐先读：
+- `docs/README.md`
+- `docs/positioning.md`
+- `docs/quickstart.md`
 
 ## 示例
 
