@@ -10,6 +10,7 @@
 
 - [职责复评](/root/code/web3-bs/docs/responsibility-review.md)
 - [定位与能力边界](/root/code/web3-bs/docs/positioning.md)
+- [能力矩阵](/root/code/web3-bs/docs/capability-matrix.md)
 - [快速上手](/root/code/web3-bs/docs/quickstart.md)
 - [完整设计说明](/root/code/web3-bs/docs/sdk-design.md)
 
@@ -18,6 +19,7 @@
 - 钱包 Provider 发现、账号选择、签名：见 [完整设计说明](/root/code/web3-bs/docs/sdk-design.md)
 - SIWE 登录、JWT 刷新、鉴权请求：见 [快速上手](/root/code/web3-bs/docs/quickstart.md)
 - UCAN 多后端授权、WebDAV 存储：见 [快速上手](/root/code/web3-bs/docs/quickstart.md) 和 [完整设计说明](/root/code/web3-bs/docs/sdk-design.md)
+- 插件钱包 / App 钱包 / 中心化服务三条路线的能力差异：见 [能力矩阵](/root/code/web3-bs/docs/capability-matrix.md)
 - 基于钱包协议文档重新看职责边界：见 [职责复评](/root/code/web3-bs/docs/responsibility-review.md)
 - 移动端无插件方案选型：见 [移动端认证方案总览](/root/code/web3-bs/docs/mobile-auth-options.md)
 - 中心化 UCAN（无插件移动端 / demo 路线）：见 [中心化 UCAN 方案](/root/code/web3-bs/docs/mobile-auth-central-ucan.md)

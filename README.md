@@ -22,6 +22,15 @@ npm install @yeying-community/web3-bs
 - `docs/README.md`
 - `docs/positioning.md`
 - `docs/quickstart.md`
+- `docs/capability-matrix.md`
+
+## 接入路线
+
+- 钱包插件路线：适合浏览器内已有 YeYing、MetaMask 等插件钱包的 DApp；优先使用 `getProvider`、`loginWithChallenge`，若钱包支持 YeYing UCAN RPC，再扩展到 UCAN 多后端授权
+- App 钱包路线：适合移动端 Web；前提是钱包 App 或桥接层能暴露 EIP-1193 provider，通常使用 `requestAccounts`、`signMessage`、`loginWithChallenge`
+- 中心化服务路线：适合无钱包、无插件或更关注接入成本的场景；使用 JWT 或中心化 UCAN，通常组合 `setAccessToken`、`authFetch`、`createCentralSession`、`issueCentralUcan`
+
+能力对比见 `docs/capability-matrix.md`，详细接入步骤见 `docs/quickstart.md`。
 
 ## 示例
 
