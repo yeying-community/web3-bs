@@ -60,3 +60,54 @@ sequenceDiagram
 ## 6. 结论
 
 可行但会改变 UCAN 信任模型，需谨慎评估。
+
+## 7. Demo 接口（当前实现）
+
+Node 侧已提供最小可运行 Demo（需启用 `UCAN_CENTRAL_ISSUER_ENABLED=true`）：
+
+- `GET /api/v1/public/auth/central/issuer`
+  - 返回中心化 Issuer DID、默认 audience/capabilities
+- `POST /api/v1/public/auth/central/session`
+  - 入参：`{ "subject": "mobile-user-001" }`
+  - 出参：`sessionToken`
+- `POST /api/v1/public/auth/central/issue`
+  - Header：`Authorization: Bearer <sessionToken>`
+  - 入参：`{ "audience": "...", "capabilities": [{ "resource": "profile", "action": "read" }] }`
+  - 出参：`ucan`
+
+使用 `ucan` 调用业务接口：
+
+- `GET /api/v1/public/profile/me`
+  - Header：`Authorization: Bearer <ucan>`
+
+## 8. SDK 调用示例（web3-bs）
+
+```ts
+import {
+  createCentralSession,
+  issueCentralUcan,
+  authCentralUcanFetch,
+} from '@yeying-community/web3-bs';
+
+const baseUrl = 'http://127.0.0.1:8100/api/v1/public/auth/central';
+const profileUrl = 'http://127.0.0.1:8100/api/v1/public/profile/me';
+
+const session = await createCentralSession({
+  baseUrl,
+  subject: 'mobile-user-001',
+});
+
+const issued = await issueCentralUcan({
+  baseUrl,
+  sessionToken: session.sessionToken,
+  audience: 'did:web:localhost:8100',
+  capabilities: [{ resource: 'profile', action: 'read' }],
+});
+
+const res = await authCentralUcanFetch(
+  profileUrl,
+  { method: 'GET' },
+  { ucan: issued.ucan }
+);
+console.log(await res.json());
+```
