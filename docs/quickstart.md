@@ -108,6 +108,7 @@ const res = await authUcanFetch(
 - 这条链路依赖钱包提供 `yeying_ucan_session` / `yeying_ucan_sign`
 - `root` 是 SIWE bridge 证明
 - 每个后端需要使用自己的 `audience`
+- `resource/action` 的具体取值由目标服务决定，SDK 不定义统一标准
 
 ## 5. 场景四：接入 WebDAV 存储
 
@@ -155,6 +156,7 @@ await storage.client.upload(`${storage.appDir}/hello.txt`, 'Hello WebDAV');
 - 子路径统一通过 `prefix` 指定
 - WebDAV app scope 默认对应 `/apps/<appId>`
 - `appId` 建议使用当前域名或 `IP:端口`
+- 若后端要求 `app:all:<appId>` 等其他格式，请按后端策略传入 `capabilities`
 
 ## 6. 场景五：移动端无插件，走中心化 UCAN
 
