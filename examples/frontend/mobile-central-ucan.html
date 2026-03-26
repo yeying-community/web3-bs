@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mobile Central UCAN Demo</title>
+    <style>
+      :root {
+        --bg: #f5f7fb;
+        --card: #ffffff;
+        --text: #12223a;
+        --muted: #5a6f8f;
+        --primary: #0f63ff;
+        --border: #dbe5f2;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: "SF Pro Text", "PingFang SC", "Helvetica Neue", sans-serif;
+        background: linear-gradient(180deg, #eef4ff 0%, var(--bg) 60%);
+        color: var(--text);
+      }
+      .container {
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 20px 14px 28px;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 14px;
+        margin-bottom: 12px;
+      }
+      h1 {
+        margin: 0 0 6px;
+        font-size: 22px;
+      }
+      p {
+        margin: 0;
+        color: var(--muted);
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 10px;
+      }
+      label {
+        display: block;
+        font-size: 13px;
+        color: var(--muted);
+        margin: 0 0 6px;
+      }
+      input {
+        width: 100%;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px 11px;
+        font-size: 14px;
+        color: var(--text);
+      }
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      button {
+        border: 1px solid var(--primary);
+        border-radius: 10px;
+        padding: 9px 12px;
+        font-size: 13px;
+        background: var(--primary);
+        color: #fff;
+        cursor: pointer;
+      }
+      button.secondary {
+        background: #fff;
+        color: var(--primary);
+      }
+      .mono {
+        font-family: "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
+        font-size: 12px;
+        word-break: break-all;
+      }
+      #log {
+        min-height: 180px;
+        max-height: 320px;
+        overflow: auto;
+        white-space: pre-wrap;
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="card">
+        <h1>Mobile Central UCAN Demo</h1>
+        <p>用于验证手机端无插件 UCAN 登录流程：Session -> UCAN -> API。</p>
+      </div>
+
+      <div class="card">
+        <div class="grid">
+          <div>
+            <label for="authBase">Auth Base URL</label>
+            <input id="authBase" value="http://127.0.0.1:8100/api/v1/public/auth/central" />
+          </div>
+          <div>
+            <label for="profileUrl">Profile URL</label>
+            <input id="profileUrl" value="http://127.0.0.1:8100/api/v1/public/profile/me" />
+          </div>
+          <div>
+            <label for="subject">Subject</label>
+            <input id="subject" value="mobile-user-001" />
+          </div>
+          <div>
+            <label for="audience">UCAN Audience</label>
+            <input id="audience" value="did:web:localhost:8100" />
+          </div>
+          <div>
+            <label for="resource">Capability Resource</label>
+            <input id="resource" value="profile" />
+          </div>
+          <div>
+            <label for="action">Capability Action</label>
+            <input id="action" value="read" />
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="actions">
+          <button id="issuerBtn" class="secondary">1. Issuer Info</button>
+          <button id="sessionBtn">2. Create Session</button>
+          <button id="ucanBtn">3. Issue UCAN</button>
+          <button id="profileBtn">4. Call Profile</button>
+          <button id="clearBtn" class="secondary">Clear</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="mono">sessionToken:</div>
+        <div id="sessionOut" class="mono">-</div>
+        <div class="mono" style="margin-top: 8px">ucan:</div>
+        <div id="ucanOut" class="mono">-</div>
+      </div>
+
+      <div class="card">
+        <div class="mono">log</div>
+        <pre id="log" class="mono"></pre>
+      </div>
+    </div>
+
+    <script>
+      const authBaseInput = document.getElementById('authBase');
+      const profileUrlInput = document.getElementById('profileUrl');
+      const subjectInput = document.getElementById('subject');
+      const audienceInput = document.getElementById('audience');
+      const resourceInput = document.getElementById('resource');
+      const actionInput = document.getElementById('action');
+      const sessionOut = document.getElementById('sessionOut');
+      const ucanOut = document.getElementById('ucanOut');
+      const logEl = document.getElementById('log');
+
+      const issuerBtn = document.getElementById('issuerBtn');
+      const sessionBtn = document.getElementById('sessionBtn');
+      const ucanBtn = document.getElementById('ucanBtn');
+      const profileBtn = document.getElementById('profileBtn');
+      const clearBtn = document.getElementById('clearBtn');
+
+      let sdk = null;
+      let sessionToken = '';
+      let ucan = '';
+
+      function log(message, data) {
+        const line = `[${new Date().toISOString()}] ${message}`;
+        const body = data ? `${line}\n${JSON.stringify(data, null, 2)}\n` : `${line}\n`;
+        logEl.textContent = `${body}${logEl.textContent}`;
+      }
+
+      function shortToken(token) {
+        if (!token) return '-';
+        if (token.length <= 80) return token;
+        return `${token.slice(0, 40)}...${token.slice(-32)}`;
+      }
+
+      function getCaps() {
+        return [
+          {
+            resource: resourceInput.value.trim(),
+            action: actionInput.value.trim(),
+          },
+        ].filter(cap => cap.resource && cap.action);
+      }
+
+      function resolveSdkCandidates() {
+        const params = new URLSearchParams(window.location.search);
+        const override = params.get('sdk');
+        const candidates = [];
+        if (override) candidates.push(override);
+        if (location && location.origin && location.origin !== 'null') {
+          candidates.push(`${location.origin}/dist/web3-bs.umd.js`);
+        }
+        candidates.push('/dist/web3-bs.umd.js');
+        [3203, 8100].forEach(port => {
+          candidates.push(`http://127.0.0.1:${port}/dist/web3-bs.umd.js`);
+        });
+        return candidates;
+      }
+
+      function loadSdk() {
+        const candidates = resolveSdkCandidates();
+        return new Promise((resolve, reject) => {
+          let index = 0;
+          const next = () => {
+            if (index >= candidates.length) {
+              reject(new Error('Failed to load SDK'));
+              return;
+            }
+            const url = candidates[index++];
+            if (!url) return next();
+            const script = document.createElement('script');
+            script.src = url;
+            script.async = true;
+            script.onload = () => resolve(url);
+            script.onerror = () => next();
+            document.head.appendChild(script);
+          };
+          next();
+        });
+      }
+
+      function applyOriginDefaults() {
+        if (!location || !location.origin || location.origin === 'null') return;
+        authBaseInput.value = `${location.origin}/api/v1/public/auth/central`;
+        profileUrlInput.value = `${location.origin}/api/v1/public/profile/me`;
+      }
+
+      async function fetchIssuer() {
+        if (!sdk) throw new Error('SDK not ready');
+        const info = await sdk.getCentralIssuerInfo({
+          baseUrl: authBaseInput.value.trim(),
+          storeSessionToken: false,
+        });
+        if (typeof info.defaultAudience === 'string' && info.defaultAudience.trim()) {
+          audienceInput.value = info.defaultAudience;
+        }
+        log('issuer ok', info);
+      }
+
+      async function createSession() {
+        if (!sdk) throw new Error('SDK not ready');
+        const result = await sdk.createCentralSession({
+          baseUrl: authBaseInput.value.trim(),
+          subject: subjectInput.value.trim(),
+          storeSessionToken: false,
+        });
+        sessionToken = result.sessionToken;
+        sessionOut.textContent = shortToken(sessionToken);
+        log('session ok', result);
+      }
+
+      async function issueToken() {
+        if (!sdk) throw new Error('SDK not ready');
+        if (!sessionToken) {
+          throw new Error('请先创建 session');
+        }
+        const result = await sdk.issueCentralUcan({
+          baseUrl: authBaseInput.value.trim(),
+          sessionToken,
+          audience: audienceInput.value.trim(),
+          capabilities: getCaps(),
+          storeSessionToken: false,
+        });
+        ucan = result.ucan;
+        ucanOut.textContent = shortToken(ucan);
+        log('issue ok', result);
+      }
+
+      async function callProfile() {
+        if (!sdk) throw new Error('SDK not ready');
+        if (!ucan) {
+          throw new Error('请先签发 UCAN');
+        }
+        const response = await sdk.authCentralUcanFetch(
+          profileUrlInput.value.trim(),
+          { method: 'GET' },
+          {
+            ucan,
+            storeSessionToken: false,
+          }
+        );
+        const body = await response.json();
+        log(`profile ${response.status}`, body);
+      }
+
+      function wrap(handler) {
+        return async () => {
+          try {
+            await handler();
+          } catch (error) {
+            log('error', { message: error instanceof Error ? error.message : String(error) });
+          }
+        };
+      }
+
+      issuerBtn.addEventListener('click', wrap(fetchIssuer));
+      sessionBtn.addEventListener('click', wrap(createSession));
+      ucanBtn.addEventListener('click', wrap(issueToken));
+      profileBtn.addEventListener('click', wrap(callProfile));
+      clearBtn.addEventListener('click', () => {
+        sessionToken = '';
+        ucan = '';
+        sessionOut.textContent = '-';
+        ucanOut.textContent = '-';
+        logEl.textContent = '';
+      });
+
+      applyOriginDefaults();
+      loadSdk()
+        .then(url => {
+          sdk = window.YeYingWeb3;
+          if (!sdk) {
+            throw new Error('YeYingWeb3 not found on window');
+          }
+          log('SDK loaded', { url });
+          log('Tips', {
+            hint: '若加载失败，请先 npm run build，或使用 ?sdk=http://<host>/dist/web3-bs.umd.js 指定地址',
+          });
+        })
+        .catch(error => {
+          log('SDK load failed', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        });
+    </script>
+  </body>
+</html>

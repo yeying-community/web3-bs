@@ -1,13 +1,15 @@
-# YeYing Inject Wallet SDK
+# YeYing Browser DApp Access SDK
 
-轻量级注入钱包 SDK，专注浏览器端 EIP-1193 Provider。默认优先选择 YeYing Wallet（支持 EIP-6963 多钱包发现）。
-仅支持浏览器环境（依赖 `window` / `localStorage` / `fetch`）。
+浏览器端 DApp 接入 SDK，用于统一封装钱包连接、会话维护、SIWE 登录、UCAN 多后端授权、中心化服务接入和 WebDAV 存储访问。
+它优先面向 EIP-1193 / EIP-6963 钱包生态，可对接 YeYing、MetaMask 等浏览器钱包；也可对接能暴露 EIP-1193 能力的 App 钱包或中心化认证服务。仅支持浏览器环境（依赖 `window` / `localStorage` / `fetch`）。
 
 功能要点：
 - 浏览器端 EIP-1193 Provider 辅助库
-- 默认优先 YeYing Wallet
+- 默认优先 YeYing Wallet，也兼容其他 EIP-1193 钱包
 - 内置 `signMessage` / `loginWithChallenge` / `refresh` / `logout` 等方法
 - 支持 UCAN Session + SIWE Bridge，用于多后端授权
+- 支持中心化 UCAN Demo API：`createCentralSession` / `issueCentralUcan` / `authCentralUcanFetch`
+- 统一封装前端连接会话、token 会话与 WebDAV 访问会话，降低 DApp 集成成本
 
 ## 安装
 
@@ -16,10 +18,24 @@ npm install @yeying-community/web3-bs
 ```
 
 更多集成与流程说明见 `docs/sdk-design.md`。
+推荐先读：
+- `docs/README.md`
+- `docs/positioning.md`
+- `docs/quickstart.md`
+- `docs/capability-matrix.md`
+
+## 接入路线
+
+- 钱包插件路线：适合浏览器内已有 YeYing、MetaMask 等插件钱包的 DApp；优先使用 `getProvider`、`loginWithChallenge`，若钱包支持 YeYing UCAN RPC，再扩展到 UCAN 多后端授权
+- App 钱包路线：适合移动端 Web；前提是钱包 App 或桥接层能暴露 EIP-1193 provider，通常使用 `requestAccounts`、`signMessage`、`loginWithChallenge`
+- 中心化服务路线：适合无钱包、无插件或更关注接入成本的场景；使用 JWT 或中心化 UCAN，通常组合 `setAccessToken`、`authFetch`、`createCentralSession`、`issueCentralUcan`
+
+能力对比见 `docs/capability-matrix.md`，详细接入步骤见 `docs/quickstart.md`。
 
 ## 示例
 
 - Frontend Dapp (HTML): `examples/frontend/dapp.html`
+- Frontend Mobile Central UCAN Demo: `examples/frontend/mobile-central-ucan.html`
 - Frontend Dapp (TS module): `examples/frontend/main.ts`
 - Backend server (Node): `examples/backend/node/server.js`
 - Backend server (Go): `examples/backend/go/main.go`
