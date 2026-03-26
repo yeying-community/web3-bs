@@ -1,0 +1,403 @@
+# 快速上手
+
+本文档按 3 条接入路线来组织：
+
+1. 钱包插件路线
+2. App 钱包路线
+3. 中心化服务路线
+
+目标不是罗列全部 API，而是让 DApp 团队先判断“我该走哪条路”，再落到对应的代码组合。
+
+## 1. 安装
+
+```bash
+npm install @yeying-community/web3-bs
+```
+
+## 2. 先选路线
+
+### 2.1 钱包插件路线
+
+适合：
+- PC Web 为主
+- 浏览器里已有钱包插件
+- 需要标准连接、签名、SIWE 登录
+- 若插件是 YeYing，且支持 UCAN RPC，还可以走多后端 UCAN 授权
+
+### 2.2 App 钱包路线
+
+适合：
+- 移动端 Web
+- 没有浏览器插件，但可以连接钱包 App
+- 钱包 App 或适配层能暴露 EIP-1193 能力
+
+### 2.3 中心化服务路线
+
+适合：
+- 无钱包、无插件，或者不要求链上身份
+- 希望统一用中心化会话、JWT 或中心化 UCAN
+- 目标是降低移动端接入成本
+
+## 3. 路线一：钱包插件
+
+这是当前最完整、最自然的路线。
+
+### 3.1 前提
+
+- 浏览器内有可用插件钱包
+- 至少支持 EIP-1193
+- 若要走 UCAN，多后端授权链路需要钱包支持 YeYing 专有 RPC：
+  - `yeying_ucan_session`
+  - `yeying_ucan_sign`
+
+### 3.2 典型流程图
+
+```text
+Detect Provider -> Request Accounts -> Sign / Login -> Access API -> Access WebDAV
+```
+
+### 3.3 适用钱包
+
+- YeYing：支持标准连接 + YeYing UCAN 路线
+- MetaMask 等 EIP-1193 钱包：支持连接、签名、challenge/SIWE 登录
+
+关键边界：
+- “支持插件钱包”不等于“所有插件都支持 UCAN”
+- 通用插件通常只能走标准签名 / JWT 登录
+- YeYing 插件可以走完整 UCAN 路线
+
+### 3.4 最短接入：只做连接与签名
+
+```ts
+import { getProvider, requestAccounts, signMessage } from '@yeying-community/web3-bs';
+
+const provider = await getProvider({ preferYeYing: true });
+if (!provider) throw new Error('No injected wallet provider');
+
+const accounts = await requestAccounts({ provider });
+const address = accounts[0];
+if (!address) throw new Error('No account available');
+
+const signature = await signMessage({
+  provider,
+  address,
+  message: 'hello web3-bs',
+});
+```
+
+推荐用途：
+- 登录前置连接
+- 简单签名授权
+- 账户选择与账户变更监听
+
+### 3.5 插件钱包常规路线：challenge / SIWE 登录 + JWT
+
+这条路适用于所有标准 EIP-1193 钱包。
+
+```ts
+import {
+  loginWithChallenge,
+  authFetch,
+  refreshAccessToken,
+} from '@yeying-community/web3-bs';
+
+const login = await loginWithChallenge({
+  baseUrl: 'https://api.example.com/api/v1/public/auth',
+});
+
+const profileRes = await authFetch(
+  'https://api.example.com/api/v1/public/profile',
+  { method: 'GET' },
+  { baseUrl: 'https://api.example.com/api/v1/public/auth' }
+);
+
+const refreshed = await refreshAccessToken({
+  baseUrl: 'https://api.example.com/api/v1/public/auth',
+});
+```
+
+这条路线下，SDK 负责维护：
+- access token 缓存
+- refresh 流程
+- `authFetch` 的统一请求行为
+
+### 3.6 YeYing 增强路线：UCAN 一次授权多个后端
+
+这条路只适用于支持 YeYing UCAN RPC 的钱包。
+
+```ts
+import {
+  createUcanSession,
+  getOrCreateUcanRoot,
+  createInvocationUcan,
+  authUcanFetch,
+} from '@yeying-community/web3-bs';
+
+const provider = await getProvider({ preferYeYing: true });
+if (!provider) throw new Error('No injected wallet provider');
+
+const session = await createUcanSession({ provider });
+
+const root = await getOrCreateUcanRoot({
+  provider,
+  session,
+  capabilities: [{ resource: 'profile', action: 'read' }],
+});
+
+const ucan = await createInvocationUcan({
+  issuer: session,
+  audience: 'did:web:api.example.com',
+  capabilities: [{ resource: 'profile', action: 'read' }],
+  proofs: [root],
+});
+
+const res = await authUcanFetch(
+  'https://api.example.com/api/v1/public/profile',
+  { method: 'GET' },
+  { ucan }
+);
+```
+
+这条路线下，SDK 负责维护：
+- UCAN session 读取与创建
+- Root proof 复用
+- Invocation token 缓存
+- 面向多个后端的 audience/capability 组装
+
+### 3.7 插件钱包下的 WebDAV
+
+#### 用 JWT 或 UCAN token 直接访问
+
+```ts
+import { createWebDavClient } from '@yeying-community/web3-bs';
+
+const appId = window.location.host || '127.0.0.1:8001';
+
+const client = createWebDavClient({
+  baseUrl: 'https://webdav.example.com',
+  prefix: '/dav',
+  token: '<JWT_OR_UCAN>',
+});
+
+await client.upload(`/apps/${appId}/hello.txt`, 'Hello WebDAV');
+```
+
+#### 用 UCAN 自动初始化存储
+
+```ts
+import { initWebDavStorage } from '@yeying-community/web3-bs';
+
+const appId = window.location.host || '127.0.0.1:8001';
+
+const storage = await initWebDavStorage({
+  baseUrl: 'https://webdav.example.com',
+  prefix: '/dav',
+  audience: 'did:web:webdav.example.com',
+  appId,
+  capabilities: [{ resource: `app:${appId}`, action: 'write' }],
+});
+
+await storage.client.upload(`${storage.appDir}/hello.txt`, 'Hello WebDAV');
+```
+
+WebDAV 注意：
+- `baseUrl` 只填根地址
+- 子路径通过 `prefix` 指定
+- capability 的资源格式由目标服务决定，可能是 `app:<appId>`，也可能是 `app:all:<appId>`
+
+## 4. 路线二：App 钱包
+
+这条路线的关键不是“是不是手机 App”，而是：
+
+> 能不能把钱包能力适配成前端可调用的 Provider
+
+### 4.1 前提
+
+- 钱包 App 自身提供浏览器内 Provider
+- 或通过桥接层 / SDK 暴露 EIP-1193 接口
+
+如果没有 EIP-1193 或等价适配层，`web3-bs` 不能直接接。
+
+### 4.2 典型流程图
+
+```text
+Connect App Wallet -> Get Provider Adapter -> Request Accounts -> Sign / Login -> Access API
+```
+
+### 4.3 推荐路线
+
+#### 4.3.1 App 钱包只支持标准 EIP-1193
+
+这是最常见情况。
+
+建议走：
+- `getProvider` / 适配后的 `provider`
+- `requestAccounts`
+- `signMessage`
+- `loginWithChallenge`
+- `authFetch`
+- `createWebDavClient`
+
+示例：
+
+```ts
+import {
+  requestAccounts,
+  loginWithChallenge,
+  authFetch,
+} from '@yeying-community/web3-bs';
+
+const provider = appWalletProvider;
+const accounts = await requestAccounts({ provider });
+const address = accounts[0];
+if (!address) throw new Error('No account available');
+
+await loginWithChallenge({
+  provider,
+  address,
+  baseUrl: 'https://api.example.com/api/v1/public/auth',
+});
+
+const res = await authFetch(
+  'https://api.example.com/api/v1/public/profile',
+  { method: 'GET' },
+  { baseUrl: 'https://api.example.com/api/v1/public/auth' }
+);
+```
+
+#### 4.3.2 App 钱包也支持 YeYing UCAN RPC
+
+这种情况可以直接复用“钱包插件路线”的 UCAN 路径。
+
+也就是说：
+- Provider 入口不同
+- `web3-bs` 的 UCAN 调用方式不变
+
+### 4.4 App 钱包路线的关键限制
+
+- `web3-bs` 不自带 WalletConnect 或 App Bridge 实现
+- 它假设你已经拿到了可调用的 `provider`
+- 如果 App 钱包只支持签名，不支持 YeYing UCAN RPC，那么 UCAN 路线不可用
+
+### 4.5 App 钱包下的 WebDAV
+
+推荐优先走：
+- challenge/SIWE 登录 -> JWT
+- `createWebDavClient` 访问 WebDAV
+
+只有在 App 钱包具备 YeYing UCAN 能力时，再走：
+- `initWebDavStorage`
+
+## 5. 路线三：中心化服务
+
+这条路线适合“无钱包插件、无 App 钱包、或业务不强依赖链上身份”的场景。
+
+### 5.1 典型流程图
+
+```text
+Create Session / Login -> Get Token -> Access API -> Access WebDAV
+```
+
+### 5.2 中心化 JWT 路线
+
+如果中心化服务给你的是 JWT，而不是 UCAN，推荐直接用：
+- `setAccessToken`
+- `authFetch`
+- `createWebDavClient`
+
+```ts
+import {
+  setAccessToken,
+  authFetch,
+  createWebDavClient,
+} from '@yeying-community/web3-bs';
+
+const token = '<ACCESS_TOKEN>';
+setAccessToken(token, { storeToken: true });
+
+const profileRes = await authFetch(
+  'https://api.example.com/api/v1/public/profile',
+  { method: 'GET' }
+);
+
+const appId = window.location.host || '127.0.0.1:8001';
+const webdav = createWebDavClient({
+  baseUrl: 'https://webdav.example.com',
+  prefix: '/dav',
+  token,
+});
+await webdav.upload(`/apps/${appId}/hello.txt`, 'Hello');
+```
+
+### 5.3 中心化 UCAN 路线
+
+如果中心化服务会先发 session，再签发 UCAN，可以用：
+- `createCentralSession`
+- `issueCentralUcan`
+- `authCentralUcanFetch`
+
+```ts
+import {
+  createCentralSession,
+  issueCentralUcan,
+  authCentralUcanFetch,
+} from '@yeying-community/web3-bs';
+
+const session = await createCentralSession({
+  baseUrl: 'https://api.example.com/api/v1/public/auth/central',
+  subject: 'mobile-user-001',
+});
+
+const issued = await issueCentralUcan({
+  baseUrl: 'https://api.example.com/api/v1/public/auth/central',
+  sessionToken: session.sessionToken,
+  audience: 'did:web:api.example.com',
+  capabilities: [{ resource: 'profile', action: 'read' }],
+});
+
+const res = await authCentralUcanFetch(
+  'https://api.example.com/api/v1/public/profile/me',
+  { method: 'GET' },
+  {
+    ucan: issued.ucan,
+    baseUrl: 'https://api.example.com/api/v1/public/auth/central',
+  }
+);
+```
+
+这条路线下，SDK 负责维护：
+- central session token 缓存
+- UCAN issue 请求封装
+- central UCAN 请求发送
+
+### 5.4 中心化服务路线的边界
+
+- 它不等价于钱包本地 UCAN
+- 它更适合移动端无插件场景
+- 如果你只需要登录后端与访问 WebDAV，JWT 路线通常比中心化 UCAN 更简单
+
+## 6. 三条路线如何选
+
+- 你有浏览器插件钱包：优先“钱包插件路线”
+- 你有钱包 App + Provider 适配层：走“App 钱包路线”
+- 你没有钱包能力，或业务接受中心化身份：走“中心化服务路线”
+
+更细一点：
+- 只要连接、签名、登录：任意 EIP-1193 钱包即可
+- 要走 UCAN 多后端授权：优先 YeYing 钱包能力
+- 要覆盖移动端无插件：优先中心化服务路线
+
+## 7. 最常见的 API 组合
+
+- 插件钱包 + JWT 登录：`getProvider` + `requestAccounts` + `loginWithChallenge` + `authFetch`
+- 插件钱包 + UCAN：`createUcanSession` + `getOrCreateUcanRoot` + `createInvocationUcan`
+- App 钱包 + JWT 登录：`requestAccounts` + `loginWithChallenge` + `authFetch`
+- 中心化 JWT：`setAccessToken` + `authFetch` + `createWebDavClient`
+- 中心化 UCAN：`createCentralSession` + `issueCentralUcan` + `authCentralUcanFetch`
+
+## 8. 进一步阅读
+
+- [定位与能力边界](/root/code/web3-bs/docs/positioning.md)
+- [职责复评](/root/code/web3-bs/docs/responsibility-review.md)
+- [完整设计说明](/root/code/web3-bs/docs/sdk-design.md)
+- [移动端认证方案总览](/root/code/web3-bs/docs/mobile-auth-options.md)
