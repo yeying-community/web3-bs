@@ -12,6 +12,7 @@
   "scripts": {
     "dev": "rollup -c -w",
     "build": "rm -rf dist && rollup -c",
+    "check:capabilities": "npm run build && node scripts/ucan-capability-check.mjs",
     "test": "echo \"No tests\"",
     "format": "prettier --write \"src/**/*.ts\"",
     "docs": "typedoc --out docs src"

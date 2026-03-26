@@ -2,8 +2,11 @@ import { getAccounts, getChainId, getProvider, requireProvider } from './provide
 import { Eip1193Provider } from './types';
 
 export type UcanCapability = {
-  resource: string;
-  action: string;
+  with?: string;
+  can?: string;
+  resource?: string;
+  action?: string;
+  nb?: unknown;
 };
 
 export type UcanRootProof = {
@@ -30,11 +33,16 @@ export type UcanTokenPayload = {
   prf: UcanProof[];
 };
 
+export type UcanSessionSource = 'wallet' | 'local';
+
 export type UcanSessionRecord = {
   id: string;
   did: string;
   createdAt: number;
   expiresAt: number | null;
+  source?: UcanSessionSource;
+  privateKeyJwk?: JsonWebKey;
+  publicKeyJwk?: JsonWebKey;
   root?: UcanRootProof;
 };
 
@@ -43,6 +51,7 @@ export type UcanSessionKey = {
   did: string;
   createdAt: number;
   expiresAt: number | null;
+  source?: UcanSessionSource;
   signer?: (signingInput: string, payload: UcanTokenPayload) => Promise<string>;
   privateKey?: CryptoKey;
 };
@@ -98,6 +107,8 @@ const DEFAULT_SESSION_TTL = 24 * 60 * 60 * 1000;
 const DEFAULT_UCAN_TTL = 5 * 60 * 1000;
 const DB_NAME = 'yeying-web3';
 const DB_STORE = 'ucan-sessions';
+const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+const DID_KEY_ED25519_MULTICODEC = new Uint8Array([0xed, 0x01]);
 
 const textEncoder = new TextEncoder();
 
@@ -108,6 +119,72 @@ function toBase64Url(data: Uint8Array | ArrayBuffer): string {
     binary += String.fromCharCode(bytes[i]);
   }
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function normalizeActionExpression(raw: string): string {
+  const normalized = String(raw || '').trim().toLowerCase().replace(/\|/g, ',');
+  if (!normalized) return '';
+  const parts = normalized
+    .split(',')
+    .map(part => part.trim())
+    .filter(Boolean);
+  if (!parts.length) return '';
+  return Array.from(new Set(parts)).join(',');
+}
+
+export function getCapabilityResource(cap: UcanCapability | null | undefined): string {
+  if (!cap || typeof cap !== 'object') return '';
+  const withValue = typeof cap.with === 'string' ? cap.with.trim() : '';
+  if (withValue) return withValue;
+  return typeof cap.resource === 'string' ? cap.resource.trim() : '';
+}
+
+export function getCapabilityAction(cap: UcanCapability | null | undefined): string {
+  if (!cap || typeof cap !== 'object') return '';
+  const canValue = typeof cap.can === 'string' ? cap.can.trim() : '';
+  if (canValue) return normalizeActionExpression(canValue);
+  const actionValue = typeof cap.action === 'string' ? cap.action.trim() : '';
+  return normalizeActionExpression(actionValue);
+}
+
+export function normalizeUcanCapability(
+  cap: UcanCapability | null | undefined,
+  options: { includeLegacyAliases?: boolean } = {}
+): UcanCapability | null {
+  const includeLegacyAliases = options.includeLegacyAliases !== false;
+  const resource = getCapabilityResource(cap);
+  const action = getCapabilityAction(cap);
+  if (!resource || !action) return null;
+  const normalized: UcanCapability = {
+    with: resource,
+    can: action,
+  };
+  if (includeLegacyAliases) {
+    normalized.resource = resource;
+    normalized.action = action;
+  }
+  if (cap && Object.prototype.hasOwnProperty.call(cap, 'nb')) {
+    normalized.nb = cap.nb;
+  }
+  return normalized;
+}
+
+export function normalizeUcanCapabilities(
+  caps: UcanCapability[] | undefined,
+  options: { includeLegacyAliases?: boolean } = {}
+): UcanCapability[] {
+  const includeLegacyAliases = options.includeLegacyAliases !== false;
+  const seen = new Set<string>();
+  const result: UcanCapability[] = [];
+  for (const cap of caps || []) {
+    const normalized = normalizeUcanCapability(cap, { includeLegacyAliases });
+    if (!normalized) continue;
+    const key = `${normalized.with}|${normalized.can}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(normalized);
+  }
+  return result;
 }
 
 function encodeJson(value: unknown): string {
@@ -125,6 +202,141 @@ function randomNonce(bytes = 16): string {
 function normalizeExpiry(exp: number | undefined, fallbackMs: number): number {
   if (typeof exp === 'number' && !Number.isNaN(exp)) return exp;
   return Date.now() + fallbackMs;
+}
+
+function isSessionExpired(expiresAt: number | null | undefined, nowMs: number = Date.now()): boolean {
+  return typeof expiresAt === 'number' && nowMs >= expiresAt;
+}
+
+function encodeBase58(bytes: Uint8Array): string {
+  if (bytes.length === 0) return '';
+  let value = 0n;
+  for (const byte of bytes) {
+    value = (value << 8n) + BigInt(byte);
+  }
+  let encoded = '';
+  while (value > 0n) {
+    const mod = Number(value % 58n);
+    encoded = `${BASE58_ALPHABET[mod]}${encoded}`;
+    value /= 58n;
+  }
+  let leadingZeroCount = 0;
+  while (leadingZeroCount < bytes.length && bytes[leadingZeroCount] === 0) {
+    leadingZeroCount += 1;
+  }
+  if (leadingZeroCount > 0) {
+    encoded = `${'1'.repeat(leadingZeroCount)}${encoded}`;
+  }
+  return encoded || '1';
+}
+
+function ensureWebCrypto(): Crypto {
+  if (typeof crypto === 'undefined' || !crypto.subtle) {
+    throw new Error('WebCrypto not available for UCAN session');
+  }
+  return crypto;
+}
+
+function parseSessionId(options: CreateUcanSessionOptions): string {
+  return options.id || DEFAULT_SESSION_ID;
+}
+
+function isLocalSessionRecord(record: UcanSessionRecord | null): boolean {
+  return Boolean(record?.source === 'local' || record?.privateKeyJwk);
+}
+
+async function buildDidKey(publicKey: CryptoKey): Promise<string> {
+  const webCrypto = ensureWebCrypto();
+  const raw = new Uint8Array(await webCrypto.subtle.exportKey('raw', publicKey));
+  const prefixed = new Uint8Array(DID_KEY_ED25519_MULTICODEC.length + raw.length);
+  prefixed.set(DID_KEY_ED25519_MULTICODEC, 0);
+  prefixed.set(raw, DID_KEY_ED25519_MULTICODEC.length);
+  return `did:key:z${encodeBase58(prefixed)}`;
+}
+
+async function importLocalPrivateKey(privateKeyJwk: JsonWebKey): Promise<CryptoKey> {
+  const webCrypto = ensureWebCrypto();
+  return await webCrypto.subtle.importKey('jwk', privateKeyJwk, 'Ed25519', true, ['sign']);
+}
+
+async function loadLocalSessionFromRecord(
+  id: string,
+  record: UcanSessionRecord | null
+): Promise<UcanSessionKey | null> {
+  if (!record || !isLocalSessionRecord(record) || !record.privateKeyJwk) {
+    return null;
+  }
+  if (isSessionExpired(record.expiresAt)) {
+    await deleteSessionRecord(id);
+    return null;
+  }
+  try {
+    const privateKey = await importLocalPrivateKey(record.privateKeyJwk);
+    return {
+      id: record.id || id,
+      did: record.did,
+      createdAt: record.createdAt,
+      expiresAt: record.expiresAt,
+      source: 'local',
+      privateKey,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function shouldKeepRootForSession(root: UcanRootProof | undefined, did: string, nowMs: number): boolean {
+  if (!root) return false;
+  if (root.aud && root.aud !== did) return false;
+  if (isRootExpired(root, nowMs)) return false;
+  return true;
+}
+
+async function createLocalSession(
+  options: CreateUcanSessionOptions,
+  record: UcanSessionRecord | null
+): Promise<UcanSessionKey> {
+  const webCrypto = ensureWebCrypto();
+  const sessionId = parseSessionId(options);
+  if (!options.forceNew) {
+    const existing = await loadLocalSessionFromRecord(sessionId, record);
+    if (existing) return existing;
+  }
+
+  const pair = (await webCrypto.subtle.generateKey(
+    'Ed25519',
+    true,
+    ['sign', 'verify']
+  )) as CryptoKeyPair;
+  const [privateKeyJwk, publicKeyJwk, did] = await Promise.all([
+    webCrypto.subtle.exportKey('jwk', pair.privateKey),
+    webCrypto.subtle.exportKey('jwk', pair.publicKey),
+    buildDidKey(pair.publicKey),
+  ]);
+
+  const createdAt = Date.now();
+  const expiresAt = normalizeExpiry(undefined, options.expiresInMs ?? DEFAULT_SESSION_TTL);
+  const root = shouldKeepRootForSession(record?.root, did, createdAt) ? record?.root : undefined;
+
+  await writeSessionRecord({
+    id: sessionId,
+    did,
+    createdAt,
+    expiresAt,
+    source: 'local',
+    privateKeyJwk,
+    publicKeyJwk,
+    root,
+  });
+
+  return {
+    id: sessionId,
+    did,
+    createdAt,
+    expiresAt,
+    source: 'local',
+    privateKey: pair.privateKey,
+  };
 }
 
 
@@ -194,15 +406,18 @@ export async function getUcanSession(
   id: string = DEFAULT_SESSION_ID,
   provider?: Eip1193Provider
 ): Promise<UcanSessionKey | null> {
+  const record = await readSessionRecord(id);
   const walletProvider = provider || (typeof window !== 'undefined'
     ? await getProvider({ preferYeYing: true })
     : null);
-  if (!walletProvider) return null;
-  try {
-    return await requestWalletUcanSession(walletProvider, { id });
-  } catch {
-    return null;
+  if (walletProvider) {
+    try {
+      return await requestWalletUcanSession(walletProvider, { id });
+    } catch {
+      return await loadLocalSessionFromRecord(id, record);
+    }
   }
+  return await loadLocalSessionFromRecord(id, record);
 }
 
 async function requestWalletUcanSession(
@@ -238,6 +453,7 @@ async function requestWalletUcanSession(
     did: result.did,
     createdAt,
     expiresAt,
+    source: 'wallet',
     root: existing?.root,
   };
   if (nextRecord.root && nextRecord.root.aud && nextRecord.root.aud !== nextRecord.did) {
@@ -250,6 +466,7 @@ async function requestWalletUcanSession(
     did: result.did,
     createdAt,
     expiresAt,
+    source: 'wallet',
     signer: async (signingInput: string, payload: UcanTokenPayload) => {
       const signatureResult = (await provider.request({
         method: 'yeying_ucan_sign',
@@ -276,13 +493,19 @@ async function requestWalletUcanSession(
 export async function createUcanSession(
   options: CreateUcanSessionOptions = {}
 ): Promise<UcanSessionKey> {
+  const sessionId = parseSessionId(options);
+  const record = await readSessionRecord(sessionId);
   const provider = options.provider || (typeof window !== 'undefined'
     ? await getProvider({ preferYeYing: true })
     : null);
-  if (!provider) {
-    throw new Error('No wallet provider for UCAN session');
+  if (provider) {
+    try {
+      return await requestWalletUcanSession(provider, { ...options, id: sessionId });
+    } catch {
+      // fallback to local ed25519 session
+    }
   }
-  return await requestWalletUcanSession(provider, options);
+  return await createLocalSession({ ...options, id: sessionId }, record);
 }
 
 export async function clearUcanSession(id: string = DEFAULT_SESSION_ID): Promise<void> {
@@ -298,6 +521,7 @@ export async function storeUcanRoot(
   const expiresAt = record?.expiresAt ?? null;
   const did = record?.did || root.aud;
   const nextRecord: UcanSessionRecord = {
+    ...(record || {}),
     id,
     did,
     createdAt,
@@ -313,7 +537,9 @@ export async function getStoredUcanRoot(id: string = DEFAULT_SESSION_ID): Promis
 }
 
 function capsEqual(a: UcanCapability[] | undefined, b: UcanCapability[] | undefined): boolean {
-  return JSON.stringify(a || []) === JSON.stringify(b || []);
+  const left = normalizeUcanCapabilities(a, { includeLegacyAliases: false });
+  const right = normalizeUcanCapabilities(b, { includeLegacyAliases: false });
+  return JSON.stringify(left) === JSON.stringify(right);
 }
 
 function isRootExpired(root: UcanRootProof, nowMs: number): boolean {
@@ -410,9 +636,14 @@ export async function createRootUcan(options: CreateRootUcanOptions): Promise<Uc
   const exp = normalizeExpiry(undefined, options.expiresInMs ?? DEFAULT_SESSION_TTL);
   const nbf = options.notBeforeMs;
 
+  const normalizedCapabilities = normalizeUcanCapabilities(options.capabilities);
+  if (!normalizedCapabilities.length) {
+    throw new Error('Missing UCAN capabilities');
+  }
+
   const statementPayload: Record<string, unknown> = {
     aud: session.did,
-    cap: options.capabilities,
+    cap: normalizedCapabilities,
     exp,
   };
   if (nbf) statementPayload.nbf = nbf;
@@ -437,7 +668,7 @@ export async function createRootUcan(options: CreateRootUcanOptions): Promise<Uc
     type: 'siwe',
     iss: `did:pkh:eth:${address.toLowerCase()}`,
     aud: session.did,
-    cap: options.capabilities,
+    cap: normalizedCapabilities,
     exp,
     nbf,
     siwe: {
@@ -492,11 +723,15 @@ export async function createDelegationUcan(options: CreateUcanTokenOptions): Pro
     provider: options.provider,
   }));
   if (!issuer) throw new Error('Missing UCAN session key');
+  const normalizedCapabilities = normalizeUcanCapabilities(options.capabilities);
+  if (!normalizedCapabilities.length) {
+    throw new Error('Missing UCAN capabilities');
+  }
   const exp = normalizeExpiry(undefined, options.expiresInMs ?? DEFAULT_UCAN_TTL);
   const payload: UcanTokenPayload = {
     iss: issuer.did,
     aud: options.audience,
-    cap: options.capabilities,
+    cap: normalizedCapabilities,
     exp,
     nbf: options.notBeforeMs,
     prf: await resolveProofs(options, issuer),
@@ -510,11 +745,15 @@ export async function createInvocationUcan(options: CreateUcanTokenOptions): Pro
     provider: options.provider,
   }));
   if (!issuer) throw new Error('Missing UCAN session key');
+  const normalizedCapabilities = normalizeUcanCapabilities(options.capabilities);
+  if (!normalizedCapabilities.length) {
+    throw new Error('Missing UCAN capabilities');
+  }
   const exp = normalizeExpiry(undefined, options.expiresInMs ?? DEFAULT_UCAN_TTL);
   const payload: UcanTokenPayload = {
     iss: issuer.did,
     aud: options.audience,
-    cap: options.capabilities,
+    cap: normalizedCapabilities,
     exp,
     nbf: options.notBeforeMs,
     prf: await resolveProofs(options, issuer),

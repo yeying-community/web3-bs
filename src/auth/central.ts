@@ -1,5 +1,9 @@
 import type { AuthBaseOptions } from './types';
-import type { UcanCapability } from './ucan';
+import {
+  normalizeUcanCapabilities,
+  normalizeUcanCapability,
+  type UcanCapability,
+} from './ucan';
 
 export type CentralAuthBaseOptions = AuthBaseOptions & {
   baseUrl?: string;
@@ -154,13 +158,8 @@ function parseCapabilitiesField(obj: Record<string, unknown>, keys: string[]): U
     if (!Array.isArray(value)) continue;
     const caps = value
       .filter(item => item && typeof item === 'object')
-      .map(item => {
-        const entry = item as Record<string, unknown>;
-        const resource = typeof entry.resource === 'string' ? entry.resource : '';
-        const action = typeof entry.action === 'string' ? entry.action : '';
-        return { resource, action };
-      })
-      .filter(cap => Boolean(cap.resource && cap.action));
+      .map(item => normalizeUcanCapability(item as UcanCapability))
+      .filter((cap): cap is UcanCapability => Boolean(cap));
     return caps;
   }
   return undefined;
@@ -294,6 +293,9 @@ export async function issueCentralUcan(
     throw new Error('Missing central session token');
   }
 
+  const normalizedCapabilities = options.capabilities
+    ? normalizeUcanCapabilities(options.capabilities)
+    : undefined;
   const fetcher = resolveFetcher(options);
   const credentials = resolveCredentials(options);
   const url = joinUrl(resolveBaseUrl(options), options.issuePath || DEFAULT_ISSUE_PATH);
@@ -307,7 +309,7 @@ export async function issueCentralUcan(
     credentials,
     body: JSON.stringify({
       audience: options.audience,
-      capabilities: options.capabilities,
+      capabilities: normalizedCapabilities,
       expiresInMs: options.expiresInMs,
       ttlMs: options.ttlMs,
     }),

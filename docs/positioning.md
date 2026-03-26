@@ -92,10 +92,12 @@
 - 不是 Node.js 服务端 SDK
 - 不是完整的钱包标准抽象层
 
-尤其是 UCAN 这部分，当前实现并不是“对任意钱包通用”，而是**显式依赖 YeYing 钱包的专有 RPC 方法**：
+尤其是 UCAN 这部分，当前实现是**钱包 RPC 优先 + 本地回退**：
 
-- `yeying_ucan_session`
-- `yeying_ucan_sign`
+- 优先调用钱包专有 RPC：
+  - `yeying_ucan_session`
+  - `yeying_ucan_sign`
+- 若 RPC 不可用，则由 SDK 在浏览器端生成/持久化本地 Ed25519 session key 并执行签名
 
 对应实现：
 - [ucan.ts](/root/code/web3-bs/src/auth/ucan.ts)
@@ -103,13 +105,13 @@
 这意味着：
 
 - `signMessage` / `loginWithChallenge` 更接近通用 EIP-1193 / 中心化登录接入能力
-- `createUcanSession` / `createInvocationUcan` 这条链路则明显是 **YeYing 优先能力**
+- `createUcanSession` / `createInvocationUcan` 这条链路是“钱包托管优先，SDK 本地回退可用”
 - “支持 App 钱包”成立的前提是该钱包能提供 EIP-1193 或等价适配层
 
 进一步说：
 
 - SDK 可以帮助 DApp 组装 UCAN
-- 但 UCAN session 的生成和签名仍然是钱包职责
+- UCAN session 的生成和签名优先由钱包完成，必要时由 SDK 本地回退
 - capability 的最终语义仍由目标服务决定
 
 ## 5. 当前定位最需要修正的地方
@@ -134,7 +136,7 @@
 - 统一的是**浏览器端接入方式**
 - 不是统一所有钱包能力
 - 不是统一所有后端协议
-- 在 UCAN 路径上，当前统一的是 **YeYing 生态 / 兼容实现**
+- 在 UCAN 路径上，当前统一的是 **钱包优先 + 本地回退的浏览器端实现**
 
 ## 6. 推荐对外描述
 
@@ -157,7 +159,7 @@
 
 - 仅支持浏览器环境
 - `baseUrl` 只填写服务根地址，路径放到 `prefix`
-- UCAN 路径默认要求支持 YeYing 专有 RPC
+- UCAN 路径优先使用 YeYing 专有 RPC；不支持时可回退到 SDK 本地 session 签名
 - 中心化 UCAN 是补充方案，不等价于钱包侧 UCAN
 - WebDAV 是客户端封装，不是 WebDAV 服务本身
 - capability 的资源格式不是 SDK 统一定义，必须以目标服务文档为准

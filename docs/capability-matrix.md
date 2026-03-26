@@ -19,13 +19,13 @@
 | 标准消息签名 | ✅ | ✅ | ❌ | `signMessage` 适用于 EIP-1193 provider |
 | challenge / SIWE 登录 | ✅ | ✅ | ❌ | `loginWithChallenge` 需要签名能力 + 后端 challenge 接口 |
 | access token 缓存 / refresh | ✅ | ✅ | ✅ | `setAccessToken` / `authFetch` / `refreshAccessToken` |
-| UCAN Session 创建 | ⚠️ | ⚠️ | ❌ | 依赖 `yeying_ucan_session` |
-| UCAN Root / Invocation | ⚠️ | ⚠️ | ❌ | 依赖 YeYing UCAN RPC；不是所有钱包都支持 |
-| 多后端 UCAN 授权 | ⚠️ | ⚠️ | ❌ | 前提同上 |
-| 中心化 session token | ❌ | ❌ | ✅ | `createCentralSession` |
-| 中心化 UCAN 签发 | ❌ | ❌ | ✅ | `issueCentralUcan` |
+| UCAN Session 创建 | ✅ | ⚠️ | ❌ | 优先 `yeying_ucan_session`；不支持时回退本地 Ed25519 session |
+| UCAN Root / Invocation | ✅ | ⚠️ | ❌ | Root 走 SIWE；Invocation 优先钱包签名，失败可用本地 UCAN session key |
+| 多后端 UCAN 授权 | ✅ | ⚠️ | ❌ | 基于 UCAN delegation/invocation，可按 audience + capability 下发到多个后端 |
+| 中心化 session token | ✅ | ✅ | ✅ | `createCentralSession`，钱包路线也可作为补充方案使用 |
+| 中心化 UCAN 签发 | ✅ | ✅ | ✅ | `issueCentralUcan`，可与钱包路线并存 |
 | WebDAV 直接访问（JWT/UCAN） | ✅ | ✅ | ✅ | `createWebDavClient` |
-| WebDAV + UCAN 自动初始化 | ⚠️ | ⚠️ | ❌ | `initWebDavStorage`，前提是钱包 UCAN 可用 |
+| WebDAV + UCAN 自动初始化 | ✅ | ⚠️ | ❌ | `initWebDavStorage`，钱包插件可走 UCAN 自动会话与目录初始化 |
 | DApp 会话编排 | ✅ | ⚠️ | ❌ | `initDappSession` 当前偏插件 / 标准 provider 路线 |
 
 说明：
@@ -38,12 +38,12 @@
 ### 3.1 钱包插件路线
 
 - 通用插件能力：连接、签名、challenge/SIWE 登录
-- YeYing 增强能力：UCAN Session / UCAN Sign / 多后端 UCAN 授权
+- UCAN 能力：优先调用钱包 UCAN RPC；不可用时回退本地 Ed25519 UCAN session（仍通过 SIWE 建立 root 授权）
 
 结论：
 - 所有插件钱包不等价
 - 标准 EIP-1193 能力比较通用
-- UCAN 能力当前明显偏 YeYing 生态
+- 钱包插件路线已可覆盖 UCAN 单/多后端授权；YeYing 仅作为增强实现（更原生的钱包托管签名）
 
 ### 3.2 App 钱包路线
 
@@ -80,4 +80,4 @@
 - 你已经有浏览器插件：先走钱包插件路线
 - 你是移动端 Web，但能接钱包 App：走 App 钱包路线
 - 你没有钱包能力或更关注接入成本：走中心化服务路线
-- 你必须做多后端 UCAN：优先确认目标钱包是否支持 YeYing UCAN RPC
+- 你必须做多后端 UCAN：优先使用钱包 UCAN RPC；若不支持，采用 SDK 本地 UCAN session 回退机制

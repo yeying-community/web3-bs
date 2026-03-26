@@ -214,7 +214,7 @@ sequenceDiagram
 ### 6.4 UCAN（多后端 / Delegation）
 
 1. 前端检测钱包 Provider（`getProvider` / `requestAccounts`）。
-2. 由钱包生成 UCAN Session Key：`createUcanSession`。
+2. 生成 UCAN Session Key：`createUcanSession`（优先钱包 UCAN RPC，失败回退本地 Ed25519 key）。
 3. 用 SIWE 作为桥梁生成 Root UCAN（包含能力 `[{ resource, action }]`）：`createRootUcan` 或 `getOrCreateUcanRoot`。
 4. 针对每个后端生成 Invocation UCAN：`createInvocationUcan({ issuer: session, audience, capabilities, proofs: [root] })`。
 5. 调用后端业务接口：`Authorization: Bearer <UCAN>`（可用 `authUcanFetch`）。
@@ -266,8 +266,12 @@ sequenceDiagram
   participant BB as 后端 B
 
   用户 ->> FE: 打开 Dapp / 初始化 UCAN
-  FE ->> WP: createUcanSession
-  WP -->> FE: 返回 UCAN session key (did, signer)
+  FE ->> WP: createUcanSession (优先钱包 RPC)
+  alt 钱包支持 UCAN RPC
+    WP -->> FE: 返回钱包托管 UCAN session key (did, signer)
+  else 钱包不支持 UCAN RPC
+    FE -->> FE: 本地生成/加载 Ed25519 session key (IndexedDB)
+  end
   FE ->> WP: createRootUcan (SIWE 桥接)
   WP -->> FE: 返回 Root UCAN (proof)
 
@@ -286,7 +290,7 @@ sequenceDiagram
 
 ### 6.5 UCAN 授权 API（SIWE Bridge）
 
-SDK 通过 YeYing 钱包生成 UCAN Session Key 并完成签名（由钱包后台隔离私钥）。
+SDK 会优先通过钱包 UCAN RPC 获取 session key 并签名（钱包托管私钥）；若钱包不支持，则回退为浏览器端本地 Ed25519 session key 并签名。  
 Root UCAN 基于 SIWE 签名，用于多后端统一鉴权。UCAN 以 `Authorization: Bearer <UCAN>` 发送，后端会验证 UCAN 证明链与能力。
 
 新增 API：
