@@ -52,7 +52,7 @@ public class AuthServer {
   private static final String UCAN_AUD = getEnv("UCAN_AUD", "did:web:127.0.0.1:" + PORT);
   // Recommended: capability.with=app:all:<appId> and capability.can=invoke/read/write.
   // Env keeps legacy names for convenience.
-  private static final String UCAN_RESOURCE = getEnv("UCAN_RESOURCE", "app:all:*");
+  private static final String UCAN_RESOURCE = getEnv("UCAN_RESOURCE", "app:java:*");
   private static final String UCAN_ACTION = getEnv("UCAN_ACTION", "invoke");
   private static final UcanCapability REQUIRED_UCAN_CAP = new UcanCapability(UCAN_RESOURCE, UCAN_ACTION);
   private static final String BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";

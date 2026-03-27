@@ -339,9 +339,9 @@ console.log(await res.json());
 - SDK 与后端都优先推荐 `with/can`。
 - 历史字段 `resource/action` 仍兼容，但新项目建议统一迁移到 `with/can`。
 
-后端默认要求的能力为 `with=app:all:*`、`can=invoke`，可通过环境变量覆盖：
+后端默认要求的能力为 `with=app:node:*`、`can=invoke`（Node 示例后端），可通过环境变量覆盖：
 - `UCAN_AUD`：服务 DID（默认 `did:web:127.0.0.1:3203`）
-- `UCAN_RESOURCE`：资源（默认 `app:all:*`）
+- `UCAN_RESOURCE`：资源（默认 `app:node:*`）
 - `UCAN_ACTION`：动作（默认 `invoke`）
 
 提示：如需可转授权，使用 `createDelegationUcan` 创建委任链，再用被委任的 Key 生成 Invocation UCAN。

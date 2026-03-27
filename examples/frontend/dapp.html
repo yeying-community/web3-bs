@@ -534,7 +534,7 @@
                 </div>
                 <div class="field">
                   <label for="ucanResourceInput">Capability with</label>
-                  <input id="ucanResourceInput" value="app:all:127.0.0.1-8001" />
+                  <input id="ucanResourceInput" value="app:node:127.0.0.1-8001" />
                 </div>
                 <div class="field">
                   <label for="ucanActionInput">Capability can</label>
@@ -796,22 +796,55 @@ const stopChain = onChainChanged(provider, chainId => {
           };
         }
 
-        function buildRootCapabilities(baseCap) {
-          const withValue = baseCap.with || baseCap.resource;
-          const requestedActions = normalizeActionExpression(baseCap.can || baseCap.action).split(',').filter(Boolean);
-          const rootActions = Array.from(new Set(requestedActions));
-          return rootActions.map(action => ({
+        function buildRootCapabilities(capabilities) {
+          const source = Array.isArray(capabilities) ? capabilities : [];
+          const dedup = new Map();
+          source.forEach(capability => {
+            const withValue = capability?.with || capability?.resource || '';
+            const requestedActions = normalizeActionExpression(capability?.can || capability?.action)
+              .split(',')
+              .filter(Boolean);
+            if (!withValue || !requestedActions.length) return;
+            requestedActions.forEach(action => {
+              const key = `${withValue}|${action}`;
+              if (dedup.has(key)) return;
+              dedup.set(key, {
+                with: withValue,
+                can: action,
+                resource: withValue,
+                action,
+              });
+            });
+          });
+          return Array.from(dedup.values());
+        }
+
+        function buildBackendCapability(backend, appId, canValue = 'invoke') {
+          const action = normalizeActionExpression(canValue) || 'invoke';
+          const withValue = `app:${backend.id}:${appId}`;
+          return {
             with: withValue,
             can: action,
             resource: withValue,
             action,
-          }));
+          };
         }
 
-        function capabilityContextKey(capability, sessionDid) {
-          const withValue = capability.with || capability.resource || '';
-          const canValue = normalizeActionExpression(capability.can || capability.action || '');
-          return `${sessionDid || ''}|${withValue}|${canValue}`;
+        function collectUcanCapabilities() {
+          const baseCapability = ensureCapability();
+          const appId = String(el.ucanAppIdInput.value || '').trim() || deriveAppId();
+          const action = normalizeActionExpression(baseCapability.can || baseCapability.action) || 'invoke';
+          const capabilities = backendConfigs.map(backend => buildBackendCapability(backend, appId, action));
+          capabilities.push(baseCapability);
+          return buildRootCapabilities(capabilities);
+        }
+
+        function capabilitiesContextKey(capabilities, sessionDid) {
+          const list = Array.isArray(capabilities)
+            ? capabilities.map(cap => `${cap.with || cap.resource || ''}|${normalizeActionExpression(cap.can || cap.action || '')}`)
+            : [];
+          list.sort();
+          return `${sessionDid || ''}|${list.join(';')}`;
         }
 
         function buildServiceHosts() {
@@ -841,9 +874,10 @@ const stopChain = onChainChanged(provider, chainId => {
         function syncUcanScopeFromAppId(force = false) {
           const appId = String(el.ucanAppIdInput.value || '').trim();
           if (!appId) return;
-          const nextWith = `app:all:${appId}`;
+          const backend = getBackendById(el.ucanBackendSelect.value);
+          const nextWith = `app:${backend.id}:${appId}`;
           const current = String(el.ucanResourceInput.value || '').trim();
-          if (force || !current || current.startsWith('app:all:')) {
+          if (force || !current || current.startsWith('app:')) {
             el.ucanResourceInput.value = nextWith;
           }
         }
@@ -1022,12 +1056,11 @@ const stopChain = onChainChanged(provider, chainId => {
               source: state.ucanSession.source,
             });
           }
-          const baseCapability = ensureCapability();
-          const nextContextKey = capabilityContextKey(baseCapability, state.ucanSession.did);
+          const rootCapabilities = collectUcanCapabilities();
+          const nextContextKey = capabilitiesContextKey(rootCapabilities, state.ucanSession.did);
           if (state.ucanRoot && state.ucanRootContextKey && state.ucanRootContextKey !== nextContextKey) {
             clearDerivedUcanState('capability changed, root needs re-authorization');
           }
-          const rootCapabilities = buildRootCapabilities(baseCapability);
           if (!state.ucanRoot) {
             const statementPayload = {
               version: 'UCAN-AUTH-1',
@@ -1057,7 +1090,7 @@ const stopChain = onChainChanged(provider, chainId => {
           const sdk = ensureSdk();
           const provider = await ensureConnectedWallet();
           await ensureUcanSessionAndRoot();
-          const baseCapability = ensureCapability();
+          const delegationCapabilities = collectUcanCapabilities();
           if (!state.ucanDelegateSession) {
             state.ucanDelegateSession = await sdk.createUcanSession({
               provider,
@@ -1072,26 +1105,26 @@ const stopChain = onChainChanged(provider, chainId => {
             state.ucanDelegationToken = await sdk.createDelegationUcan({
               issuer: state.ucanSession,
               audience: state.ucanDelegateSession.did,
-              capabilities: [baseCapability],
+              capabilities: delegationCapabilities,
               proofs: [state.ucanRoot],
             });
             appendLog('UCAN delegation ready', {
               from: state.ucanSession.did,
               to: state.ucanDelegateSession.did,
-              capability: baseCapability,
+              capabilities: delegationCapabilities,
             });
           }
           renderStatus();
         }
 
-        async function createInvocationFor(audience) {
+        async function createInvocationFor(audience, capability) {
           const sdk = ensureSdk();
           await ensureUcanDelegation();
-          const capability = ensureCapability();
+          const invokeCapability = capability || ensureCapability();
           state.ucanToken = await sdk.createInvocationUcan({
             issuer: state.ucanDelegateSession,
             audience,
-            capabilities: [capability],
+            capabilities: [invokeCapability],
             proofs: [state.ucanDelegationToken],
           });
           renderStatus();
@@ -1196,6 +1229,7 @@ const stopChain = onChainChanged(provider, chainId => {
           el.ucanBackendSelect.addEventListener('change', () => {
             const config = getBackendById(el.ucanBackendSelect.value);
             syncUcanInputs(config);
+            syncUcanScopeFromAppId(true);
             appendLog('UCAN backend selected', config);
           });
 
@@ -1379,8 +1413,11 @@ const stopChain = onChainChanged(provider, chainId => {
           el.ucanCallAllBtn.addEventListener('click', () =>
             handleWithLog('Call all backends with UCAN', async () => {
               const sdk = ensureSdk();
+              const appId = String(el.ucanAppIdInput.value || '').trim() || deriveAppId();
+              const action = normalizeActionExpression(el.ucanActionInput.value) || 'invoke';
               for (const backend of backendConfigs) {
-                const token = await createInvocationFor(backend.audience);
+                const capability = buildBackendCapability(backend, appId, action);
+                const token = await createInvocationFor(backend.audience, capability);
                 const response = await sdk.authUcanFetch(
                   backend.profileUrl,
                   { method: 'GET' },
@@ -1390,6 +1427,7 @@ const stopChain = onChainChanged(provider, chainId => {
                 appendLog(`UCAN all -> ${backend.name}`, {
                   status: response.status,
                   audience: backend.audience,
+                  capability,
                   payload,
                 });
               }

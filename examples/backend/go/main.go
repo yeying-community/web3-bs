@@ -721,7 +721,7 @@ func main() {
 	ucanAud := getenv("UCAN_AUD", fmt.Sprintf("did:web:127.0.0.1:%d", port))
 	// Recommended: capability.with=app:all:<appId> and capability.can=invoke/read/write.
 	// Env keeps legacy names for convenience.
-	ucanResource := getenv("UCAN_RESOURCE", "app:all:*")
+	ucanResource := getenv("UCAN_RESOURCE", "app:go:*")
 	ucanAction := getenv("UCAN_ACTION", "invoke")
 	requiredUcanCap := []ucanCapability{{Resource: ucanResource, Action: ucanAction}}
 

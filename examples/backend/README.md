@@ -127,9 +127,10 @@ mvn -q exec:java -Dexec.mainClass="com.yeying.demo.AuthServer"
 
 UCAN 相关环境变量（可选）：
 - `UCAN_AUD`：服务 DID（默认 `did:web:127.0.0.1:<PORT>`）
-- `UCAN_RESOURCE`：资源（默认 `app:all:*`）
+- `UCAN_RESOURCE`：资源
+  - 默认：Go `app:go:*` / Java `app:java:*` / Node `app:node:*` / Python `app:python:*`
 - `UCAN_ACTION`：动作（默认 `invoke`）
-  - 推荐：`UCAN_RESOURCE=app:all:<appId>`，`UCAN_ACTION=invoke/read/write`（按服务最小化配置）
+  - 推荐：`UCAN_RESOURCE=app:<service>:<appId>`，`UCAN_ACTION=invoke/read/write`（按服务最小化配置）
   - WebDAV 场景建议：`UCAN_RESOURCE=app:all:<appId>`，`UCAN_ACTION=read,write`，其中 `appId` 使用前端域名或 IP:端口。
 
 多后端联调注意：

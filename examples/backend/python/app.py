@@ -31,7 +31,7 @@ COOKIE_SECURE = os.getenv("COOKIE_SECURE", "").lower() in ("1", "true", "yes")
 UCAN_AUD = os.getenv("UCAN_AUD", f"did:web:127.0.0.1:{PORT}")
 # Recommended: capability.with=app:all:<appId> and capability.can=invoke/read/write.
 # Env keeps legacy names for convenience.
-UCAN_RESOURCE = os.getenv("UCAN_RESOURCE", "app:all:*")
+UCAN_RESOURCE = os.getenv("UCAN_RESOURCE", "app:python:*")
 UCAN_ACTION = os.getenv("UCAN_ACTION", "invoke")
 REQUIRED_UCAN_CAP = [{"resource": UCAN_RESOURCE, "action": UCAN_ACTION}]
 

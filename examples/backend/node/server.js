@@ -18,7 +18,7 @@ const COOKIE_SECURE = String(process.env.COOKIE_SECURE || '').toLowerCase() === 
 const UCAN_AUD = process.env.UCAN_AUD || `did:web:127.0.0.1:${PORT}`;
 // Recommended: capability.with=app:all:<appId> and capability.can=invoke/read/write.
 // Env keeps legacy names for convenience.
-const UCAN_RESOURCE = process.env.UCAN_RESOURCE || 'app:all:*';
+const UCAN_RESOURCE = process.env.UCAN_RESOURCE || 'app:node:*';
 const UCAN_ACTION = process.env.UCAN_ACTION || 'invoke';
 
 const multiPorts = [3201, 3202, 3203, 3204];
