@@ -50,9 +50,10 @@ public class AuthServer {
 
   private static final int PORT = (int) getEnvLong("PORT", 3202);
   private static final String UCAN_AUD = getEnv("UCAN_AUD", "did:web:127.0.0.1:" + PORT);
-  // Recommended: UCAN_RESOURCE=app:<appId> and UCAN_ACTION=read,write; appId = frontend domain or IP:port.
-  private static final String UCAN_RESOURCE = getEnv("UCAN_RESOURCE", "profile");
-  private static final String UCAN_ACTION = getEnv("UCAN_ACTION", "read");
+  // Recommended: capability.with=app:all:<appId> and capability.can=invoke/read/write.
+  // Env keeps legacy names for convenience.
+  private static final String UCAN_RESOURCE = getEnv("UCAN_RESOURCE", "app:all:*");
+  private static final String UCAN_ACTION = getEnv("UCAN_ACTION", "invoke");
   private static final UcanCapability REQUIRED_UCAN_CAP = new UcanCapability(UCAN_RESOURCE, UCAN_ACTION);
   private static final String BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
@@ -530,6 +531,41 @@ public class AuthServer {
     return pattern != null && pattern.equals(value);
   }
 
+  private static String normalizeActionExpression(String value) {
+    if (value == null) return null;
+    String normalized = value.trim().toLowerCase().replace('|', ',');
+    if (normalized.isEmpty()) return null;
+    String[] parts = normalized.split(",");
+    List<String> dedup = new ArrayList<>();
+    for (String part : parts) {
+      String item = part.trim();
+      if (item.isEmpty()) continue;
+      if (!dedup.contains(item)) {
+        dedup.add(item);
+      }
+    }
+    if (dedup.isEmpty()) return null;
+    return String.join(",", dedup);
+  }
+
+  private static boolean actionAllows(String available, String required) {
+    if ("*".equals(required) || "*".equals(available)) return true;
+    String availableExpr = normalizeActionExpression(available);
+    String requiredExpr = normalizeActionExpression(required);
+    if (availableExpr == null || requiredExpr == null) return false;
+    Set<String> availableSet = new HashSet<>();
+    for (String item : availableExpr.split(",")) {
+      if (!item.isBlank()) availableSet.add(item.trim());
+    }
+    for (String item : requiredExpr.split(",")) {
+      String trimmed = item.trim();
+      if (!trimmed.isEmpty() && !availableSet.contains(trimmed)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   private static List<UcanCapability> parseCapabilities(JsonElement element) {
     List<UcanCapability> list = new ArrayList<>();
     if (element == null || !element.isJsonArray()) {
@@ -538,8 +574,15 @@ public class AuthServer {
     for (JsonElement capEl : element.getAsJsonArray()) {
       if (!capEl.isJsonObject()) continue;
       JsonObject obj = capEl.getAsJsonObject();
-      String resource = getString(obj, "resource");
-      String action = getString(obj, "action");
+      String resource = getString(obj, "with");
+      if (resource == null) {
+        resource = getString(obj, "resource");
+      }
+      String action = getString(obj, "can");
+      if (action == null) {
+        action = getString(obj, "action");
+      }
+      action = normalizeActionExpression(action);
       if (resource != null && action != null) {
         list.add(new UcanCapability(resource, action));
       }
@@ -550,9 +593,11 @@ public class AuthServer {
   private static boolean capsAllow(List<UcanCapability> available, List<UcanCapability> required) {
     if (available == null || available.isEmpty()) return false;
     for (UcanCapability req : required) {
+      if (req == null || req.resource == null || req.action == null) return false;
       boolean matched = false;
       for (UcanCapability cap : available) {
-        if (matchPattern(cap.resource, req.resource) && matchPattern(cap.action, req.action)) {
+        if (cap == null || cap.resource == null || cap.action == null) continue;
+        if (matchPattern(cap.resource, req.resource) && actionAllows(cap.action, req.action)) {
           matched = true;
           break;
         }
@@ -836,8 +881,8 @@ public class AuthServer {
     final String action;
 
     UcanCapability(String resource, String action) {
-      this.resource = resource;
-      this.action = action;
+      this.resource = resource == null ? null : resource.trim();
+      this.action = normalizeActionExpression(action);
     }
   }
 

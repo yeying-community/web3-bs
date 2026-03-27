@@ -110,14 +110,9 @@ Wallet 文档中的 Router / Chat / WebDAV 模板，推荐资源格式是：
 
 - `app:<scope>:<appId>`
 
-而当前 `web3-bs` 及 WebDAV 侧文档里，更多使用：
-
-- `app:<appId>`
-
-Wallet 文档也明确说了：
-
-- `app:<appId>` 是历史兼容格式
-- `app:all:<appId>` 是推荐模板之一
+统一建议：
+- 示例统一使用 `app:<scope>:<appId>`（常用 `app:all:<appId>`）
+- 历史兼容写法不再作为示例展示，避免误导
 
 因此结论很明确：
 

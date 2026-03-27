@@ -128,6 +128,7 @@ const refreshed = await refreshAccessToken({
 
 ```ts
 import {
+  createDelegationUcan,
   createUcanSession,
   getOrCreateUcanRoot,
   createInvocationUcan,
@@ -137,19 +138,30 @@ import {
 const provider = await getProvider({ preferYeYing: true });
 if (!provider) throw new Error('No injected wallet provider');
 
+const appId = window.location.host || '127.0.0.1:8001';
+const scope = `app:all:${appId}`;
+
 const session = await createUcanSession({ provider });
 
 const root = await getOrCreateUcanRoot({
   provider,
   session,
-  capabilities: [{ with: 'profile', can: 'read' }],
+  capabilities: [{ with: scope, can: 'invoke' }],
+});
+
+const delegateSession = await createUcanSession({ provider, id: 'demo-delegate' });
+const delegation = await createDelegationUcan({
+  issuer: session,
+  audience: delegateSession.did,
+  capabilities: [{ with: scope, can: 'invoke' }],
+  proofs: [root],
 });
 
 const ucan = await createInvocationUcan({
-  issuer: session,
+  issuer: delegateSession,
   audience: 'did:web:api.example.com',
-  capabilities: [{ with: 'profile', can: 'read' }],
-  proofs: [root],
+  capabilities: [{ with: scope, can: 'invoke' }],
+  proofs: [delegation],
 });
 
 const res = await authUcanFetch(
@@ -162,6 +174,7 @@ const res = await authUcanFetch(
 这条路线下，SDK 负责维护：
 - UCAN session 读取与创建
 - Root proof 复用
+- Delegation / Invocation 证明链组装
 - Invocation token 缓存
 - 面向多个后端的 audience/capability 组装
 
@@ -204,7 +217,7 @@ await storage.client.upload(`${storage.appDir}/hello.txt`, 'Hello WebDAV');
 WebDAV 注意：
 - `baseUrl` 只填根地址
 - 子路径通过 `prefix` 指定
-- capability 推荐使用 `with/can`，资源格式建议 `app:all:<appId>`（兼容 `app:<appId>`）
+- capability 推荐使用 `with/can`，资源格式统一为 `app:<scope>:<appId>`（常用 `app:all:<appId>`）
 
 ## 4. 路线二：App 钱包
 
@@ -353,7 +366,7 @@ const issued = await issueCentralUcan({
   baseUrl: 'https://api.example.com/api/v1/public/auth/central',
   sessionToken: session.sessionToken,
   audience: 'did:web:api.example.com',
-  capabilities: [{ resource: 'profile', action: 'read' }],
+  capabilities: [{ with: 'app:all:mobile-demo', can: 'read' }],
 });
 
 const res = await authCentralUcanFetch(

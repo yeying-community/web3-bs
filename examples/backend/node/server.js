@@ -16,9 +16,10 @@ const REFRESH_TTL_MS = Number(process.env.REFRESH_TTL_MS || 7 * 24 * 60 * 60 * 1
 const COOKIE_SAMESITE = (process.env.COOKIE_SAMESITE || 'lax').toLowerCase();
 const COOKIE_SECURE = String(process.env.COOKIE_SECURE || '').toLowerCase() === 'true';
 const UCAN_AUD = process.env.UCAN_AUD || `did:web:127.0.0.1:${PORT}`;
-// Recommended: UCAN_RESOURCE=app:<appId> and UCAN_ACTION=read,write; appId = frontend domain or IP:port.
-const UCAN_RESOURCE = process.env.UCAN_RESOURCE || 'profile';
-const UCAN_ACTION = process.env.UCAN_ACTION || 'read';
+// Recommended: capability.with=app:all:<appId> and capability.can=invoke/read/write.
+// Env keeps legacy names for convenience.
+const UCAN_RESOURCE = process.env.UCAN_RESOURCE || 'app:all:*';
+const UCAN_ACTION = process.env.UCAN_ACTION || 'invoke';
 
 const multiPorts = [3201, 3202, 3203, 3204];
 const defaultOrigins = [
@@ -115,11 +116,57 @@ function preview(value, keep = 8) {
   return `${value.slice(0, keep)}...${value.slice(-keep)}`;
 }
 
+function getCapabilityResource(cap) {
+  if (!cap || typeof cap !== 'object') return '';
+  if (typeof cap.with === 'string' && cap.with.trim()) return cap.with.trim();
+  if (typeof cap.resource === 'string' && cap.resource.trim()) return cap.resource.trim();
+  return '';
+}
+
+function normalizeActionExpression(raw) {
+  if (typeof raw !== 'string') return '';
+  const normalized = raw.trim().toLowerCase().replace(/\|/g, ',');
+  if (!normalized) return '';
+  const items = normalized
+    .split(',')
+    .map(item => item.trim())
+    .filter(Boolean);
+  if (!items.length) return '';
+  return Array.from(new Set(items)).join(',');
+}
+
+function getCapabilityAction(cap) {
+  if (!cap || typeof cap !== 'object') return '';
+  if (typeof cap.can === 'string' && cap.can.trim()) {
+    return normalizeActionExpression(cap.can);
+  }
+  if (typeof cap.action === 'string' && cap.action.trim()) {
+    return normalizeActionExpression(cap.action);
+  }
+  return '';
+}
+
+function actionAllows(availableAction, requiredAction) {
+  if (requiredAction === '*') return true;
+  if (availableAction === '*') return true;
+  const available = normalizeActionExpression(availableAction);
+  const required = normalizeActionExpression(requiredAction);
+  if (!available || !required) return false;
+  const availableSet = new Set(available.split(',').filter(Boolean));
+  const requiredList = required.split(',').filter(Boolean);
+  return requiredList.every(item => availableSet.has(item));
+}
+
 function summarizeCaps(caps) {
   if (!Array.isArray(caps)) return [];
   return caps
-    .filter(cap => cap && typeof cap.resource === 'string' && typeof cap.action === 'string')
-    .map(cap => `${cap.resource}:${cap.action}`);
+    .map(cap => {
+      const resource = getCapabilityResource(cap);
+      const action = getCapabilityAction(cap);
+      if (!resource || !action) return '';
+      return `${resource}:${action}`;
+    })
+    .filter(Boolean);
 }
 
 function now() {
@@ -208,13 +255,14 @@ function matchPattern(pattern, value) {
 function capsAllow(available, required) {
   if (!Array.isArray(available) || available.length === 0) return false;
   return required.every(req =>
-    available.some(cap =>
-      cap &&
-      typeof cap.resource === 'string' &&
-      typeof cap.action === 'string' &&
-      matchPattern(cap.resource, req.resource) &&
-      matchPattern(cap.action, req.action)
-    )
+    available.some(cap => {
+      const capResource = getCapabilityResource(cap);
+      const capAction = getCapabilityAction(cap);
+      const reqResource = getCapabilityResource(req);
+      const reqAction = getCapabilityAction(req);
+      if (!capResource || !capAction || !reqResource || !reqAction) return false;
+      return matchPattern(capResource, reqResource) && actionAllows(capAction, reqAction);
+    })
   );
 }
 

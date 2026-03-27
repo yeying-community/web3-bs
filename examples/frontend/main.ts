@@ -1,4 +1,6 @@
 import {
+  createDelegationUcan,
+  createUcanSession,
   getProvider,
   requestAccounts,
   authFetch,
@@ -21,9 +23,11 @@ async function connectAndLogin() {
     throw new Error('No account returned');
   }
 
-  const appId = typeof window !== 'undefined' ? window.location.host || '127.0.0.1:8001' : '127.0.0.1:8001';
-  const appCap = { resource: `app:${appId}`, action: 'write' };
-  const profileCap = { resource: 'profile', action: 'read' };
+  const host = typeof window !== 'undefined' ? window.location.host || '127.0.0.1:8001' : '127.0.0.1:8001';
+  const appId = host.replace(/[^a-zA-Z0-9._-]/g, '-');
+  const appScope = `app:all:${appId}`;
+  const routerCap = { with: appScope, can: 'invoke' };
+  const webdavCap = { with: appScope, can: 'write' };
 
   const session = await initDappSession({
     provider,
@@ -36,8 +40,8 @@ async function connectAndLogin() {
       baseUrl: 'http://127.0.0.1:6065',
       audience: 'did:web:127.0.0.1:6065',
       appId,
-      capabilities: [appCap, profileCap],
-      invocationCapabilities: [appCap],
+      capabilities: [routerCap, webdavCap],
+      invocationCapabilities: [webdavCap],
     },
   });
 
@@ -82,11 +86,22 @@ async function connectAndLogin() {
     throw new Error('UCAN session unavailable');
   }
 
-  const ucanToken = await createInvocationUcan({
+  const delegateSession = await createUcanSession({
+    provider,
+    id: 'demo-delegate',
+  });
+  const delegation = await createDelegationUcan({
+    audience: delegateSession.did,
     issuer: session.ucanSession,
-    audience: 'did:web:127.0.0.1:3203',
-    capabilities: [profileCap],
+    capabilities: [routerCap],
     proofs: [session.ucanRoot],
+  });
+
+  const ucanToken = await createInvocationUcan({
+    issuer: delegateSession,
+    audience: 'did:web:127.0.0.1:3203',
+    capabilities: [routerCap],
+    proofs: [delegation],
   });
   const ucanRes = await authUcanFetch(
     'http://127.0.0.1:3203/api/v1/public/profile',

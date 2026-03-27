@@ -50,8 +50,10 @@ type tokenClaims struct {
 }
 
 type ucanCapability struct {
-	Resource string `json:"resource"`
-	Action   string `json:"action"`
+	With     string `json:"with,omitempty"`
+	Can      string `json:"can,omitempty"`
+	Resource string `json:"resource,omitempty"`
+	Action   string `json:"action,omitempty"`
 }
 
 type ucanRootProof struct {
@@ -125,14 +127,81 @@ func preview(value string) string {
 	return value[:8] + "..." + value[len(value)-8:]
 }
 
+func capabilityResource(cap ucanCapability) string {
+	if trimmed := strings.TrimSpace(cap.With); trimmed != "" {
+		return trimmed
+	}
+	return strings.TrimSpace(cap.Resource)
+}
+
+func normalizeActionExpression(raw string) string {
+	normalized := strings.ToLower(strings.TrimSpace(strings.ReplaceAll(raw, "|", ",")))
+	if normalized == "" {
+		return ""
+	}
+	parts := strings.Split(normalized, ",")
+	seen := make(map[string]struct{})
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		if _, ok := seen[part]; ok {
+			continue
+		}
+		seen[part] = struct{}{}
+		out = append(out, part)
+	}
+	return strings.Join(out, ",")
+}
+
+func capabilityAction(cap ucanCapability) string {
+	if trimmed := strings.TrimSpace(cap.Can); trimmed != "" {
+		return normalizeActionExpression(trimmed)
+	}
+	return normalizeActionExpression(cap.Action)
+}
+
+func actionAllows(availableAction, requiredAction string) bool {
+	if requiredAction == "*" || availableAction == "*" {
+		return true
+	}
+	available := normalizeActionExpression(availableAction)
+	required := normalizeActionExpression(requiredAction)
+	if available == "" || required == "" {
+		return false
+	}
+	availableSet := make(map[string]struct{})
+	for _, item := range strings.Split(available, ",") {
+		item = strings.TrimSpace(item)
+		if item == "" {
+			continue
+		}
+		availableSet[item] = struct{}{}
+	}
+	for _, item := range strings.Split(required, ",") {
+		item = strings.TrimSpace(item)
+		if item == "" {
+			continue
+		}
+		if _, ok := availableSet[item]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
 func summarizeCaps(caps []ucanCapability) []string {
 	if len(caps) == 0 {
 		return []string{}
 	}
 	out := make([]string, 0, len(caps))
 	for _, cap := range caps {
-		if cap.Resource != "" && cap.Action != "" {
-			out = append(out, cap.Resource+":"+cap.Action)
+		resource := capabilityResource(cap)
+		action := capabilityAction(cap)
+		if resource != "" && action != "" {
+			out = append(out, resource+":"+action)
 		}
 	}
 	return out
@@ -304,9 +373,19 @@ func capsAllow(available []ucanCapability, required []ucanCapability) bool {
 		return false
 	}
 	for _, req := range required {
+		reqResource := capabilityResource(req)
+		reqAction := capabilityAction(req)
+		if reqResource == "" || reqAction == "" {
+			return false
+		}
 		matched := false
 		for _, cap := range available {
-			if matchPattern(cap.Resource, req.Resource) && matchPattern(cap.Action, req.Action) {
+			capResource := capabilityResource(cap)
+			capAction := capabilityAction(cap)
+			if capResource == "" || capAction == "" {
+				continue
+			}
+			if matchPattern(capResource, reqResource) && actionAllows(capAction, reqAction) {
 				matched = true
 				break
 			}
@@ -640,9 +719,10 @@ func main() {
 	cookieSameSite := strings.ToLower(getenv("COOKIE_SAMESITE", "lax"))
 	cookieSecure := parseBoolEnv("COOKIE_SECURE")
 	ucanAud := getenv("UCAN_AUD", fmt.Sprintf("did:web:127.0.0.1:%d", port))
-	// Recommended: UCAN_RESOURCE=app:<appId> and UCAN_ACTION=read,write; appId = frontend domain or IP:port.
-	ucanResource := getenv("UCAN_RESOURCE", "profile")
-	ucanAction := getenv("UCAN_ACTION", "read")
+	// Recommended: capability.with=app:all:<appId> and capability.can=invoke/read/write.
+	// Env keeps legacy names for convenience.
+	ucanResource := getenv("UCAN_RESOURCE", "app:all:*")
+	ucanAction := getenv("UCAN_ACTION", "invoke")
 	requiredUcanCap := []ucanCapability{{Resource: ucanResource, Action: ucanAction}}
 
 	sameSite := http.SameSiteLaxMode

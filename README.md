@@ -106,6 +106,7 @@ npm install @yeying-community/web3-bs
 - UCAN 调用的 `audience` 与后端 `UCAN_AUD` 一致（如 `did:web:127.0.0.1:3202`）
 
 提示：`examples/frontend/dapp.html` 已内置多后端列表，可在一次 UCAN 授权后依次调用多个服务。
+提示：Demo 的 UCAN 流程按协议链路实现为 `Root（SIWE） -> Delegation -> Invocation`，便于按步骤理解多后端授权。
 
 ## 常见问题
 
@@ -138,7 +139,7 @@ npm run check:capabilities
 - `audience` 必须与 WebDAV 服务端 `web3.ucan.audience` 一致（例如 `did:web:127.0.0.1:6065`）。
 - `capabilities` 与服务端要求一致（优先 `web3.ucan.required_capabilities`，兼容 `required_resource/required_action`）。
   - SDK 推荐使用 `with/can`（兼容 `resource/action`），例如：`{ with: "app:all:<appId>", can: "read,write" }`。
-  - 若启用了 app scope（推荐 `with=app:*`），请确保路径在 `/apps/<appId>/`（或 `app_scope.path_prefix`）下。
+  - 推荐资源统一使用 `app:<scope>:<appId>`，常用为 `with=app:all:<appId>`；请确保路径在 `/apps/<appId>/`（或 `app_scope.path_prefix`）下。
 - Token 过期或缓存异常时，清理 UCAN 会话并重新登录/生成 Root + Invocation。
 
 ### UCAN audience mismatch

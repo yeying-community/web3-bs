@@ -39,7 +39,7 @@ const storage = await initWebDavStorage({
   prefix: '/dav',
   audience: 'did:web:webdav.example.com',
   appId,
-  capabilities: [{ resource: `app:${appId}`, action: 'write' }],
+  capabilities: [{ with: `app:all:${appId}`, can: 'write' }],
 });
 ```
 
