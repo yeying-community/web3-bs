@@ -42,7 +42,7 @@ sequenceDiagram
 2) Issuer 服务签发 UCAN：
    - `iss` 为 Issuer DID
    - `aud` 指向后端服务
-   - `cap` 由后端策略决定（如 `app:<appId>`）
+   - `cap` 由后端策略决定（推荐 `app:<scope>:<appId>`，常用 `app:all:<appId>`）
 3) 前端携带 `Authorization: Bearer <UCAN>`
 4) 后端验证：改为信任 Issuer 公钥（非钱包）
 
@@ -72,7 +72,7 @@ Node 侧已提供最小可运行 Demo（需启用 `UCAN_CENTRAL_ISSUER_ENABLED=t
   - 出参：`sessionToken`
 - `POST /api/v1/public/auth/central/issue`
   - Header：`Authorization: Bearer <sessionToken>`
-  - 入参：`{ "audience": "...", "capabilities": [{ "resource": "profile", "action": "read" }] }`
+  - 入参：`{ "audience": "...", "capabilities": [{ "with": "app:all:mobile-demo", "can": "read" }] }`
   - 出参：`ucan`
 
 使用 `ucan` 调用业务接口：
@@ -101,7 +101,7 @@ const issued = await issueCentralUcan({
   baseUrl,
   sessionToken: session.sessionToken,
   audience: 'did:web:localhost:8100',
-  capabilities: [{ resource: 'profile', action: 'read' }],
+  capabilities: [{ with: 'app:all:mobile-demo', can: 'read' }],
 });
 
 const res = await authCentralUcanFetch(

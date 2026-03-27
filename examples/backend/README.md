@@ -11,6 +11,27 @@
 - JWT access token（原有流程）
 - UCAN token（`Authorization: Bearer <UCAN>`）
 
+## UCAN 协议严格模拟（Root -> Delegation -> Invocation）
+
+示例后端按 UCAN 证明链校验，核心约束如下：
+- 验证 Invocation JWS（`typ=UCAN` / `alg=EdDSA`）与 `iss` 对应的 `did:key` 签名
+- 校验 `aud` 必须等于后端 `UCAN_AUD`
+- 校验 `cap` 能力匹配（兼容 `with/can` 与 `resource/action`）
+- 递归校验 `prf`（Delegation/Root 证明链），直到 Root SIWE 证明
+- 校验时间约束（`nbf` / `exp`）和 Root 声明一致性
+
+推荐你在前端按以下顺序模拟：
+1. `createUcanSession`：生成会话密钥（钱包托管优先，本地回退可用）
+2. `createRootUcan` / `getOrCreateUcanRoot`：建立 Root 授权（SIWE bridge）
+3. `createDelegationUcan`（可选）：向下委任能力
+4. `createInvocationUcan`：面向目标后端生成请求级 token
+5. `Authorization: Bearer <UCAN>` 调用 `/api/v1/public/profile`
+
+建议能力模型（与 wallet 文档一致）：
+- 资源：`with=app:all:<appId>`
+- 动作：`can=invoke` / `can=read` / `can=write`
+- 兼容：后端仍接受历史字段 `resource/action`
+
 ## Node 版本
 
 路径：`examples/backend/node/server.js`
@@ -106,9 +127,11 @@ mvn -q exec:java -Dexec.mainClass="com.yeying.demo.AuthServer"
 
 UCAN 相关环境变量（可选）：
 - `UCAN_AUD`：服务 DID（默认 `did:web:127.0.0.1:<PORT>`）
-- `UCAN_RESOURCE`：资源（默认 `profile`）
-- `UCAN_ACTION`：动作（默认 `read`）
-  - WebDAV 场景建议：`UCAN_RESOURCE=app:<appId>`，`UCAN_ACTION=read,write`，其中 `appId` 使用前端域名或 IP:端口。
+- `UCAN_RESOURCE`：资源
+  - 默认：Go `app:go:*` / Java `app:java:*` / Node `app:node:*` / Python `app:python:*`
+- `UCAN_ACTION`：动作（默认 `invoke`）
+  - 推荐：`UCAN_RESOURCE=app:<service>:<appId>`，`UCAN_ACTION=invoke/read/write`（按服务最小化配置）
+  - WebDAV 场景建议：`UCAN_RESOURCE=app:all:<appId>`，`UCAN_ACTION=read,write`，其中 `appId` 使用前端域名或 IP:端口。
 
 多后端联调注意：
 - 访问不同端口的后端时，请将前端 Origin 加入 `CORS_ORIGINS`

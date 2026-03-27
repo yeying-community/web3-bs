@@ -1,1379 +1,1485 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>YeYing Dapp Demo</title>
+    <title>web3-bs DApp Quickstart Demo</title>
     <style>
-      html, body {
+      :root {
+        color-scheme: light;
+        --bg: #f4f7fb;
+        --panel: #ffffff;
+        --text: #1f2937;
+        --muted: #64748b;
+        --line: #dbe3ef;
+        --primary: #0f6ae8;
+        --primary-deep: #0a4fb0;
+        --good: #0f766e;
+        --warn: #92400e;
+        --code-bg: #0f172a;
+        --code-text: #dbeafe;
+        font-family: "Avenir Next", "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+      }
+
+      html,
+      body {
+        margin: 0;
+        width: 100%;
         height: 100%;
         overflow: hidden;
         overscroll-behavior: none;
+        background: radial-gradient(circle at 10% 0%, #e2ebff 0%, #f4f7fb 44%, #eef3fb 100%);
+        color: var(--text);
       }
-      :root {
-        color-scheme: light;
-        font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
-        background: #f6f7fb;
-        color: #1f2937;
-      }
-      body {
-        margin: 0;
-        padding: 0;
-        background: #f6f7fb;
-      }
-      .page {
+
+      .app {
         height: 100vh;
-        padding: 24px;
         box-sizing: border-box;
-        overflow: hidden;
+        padding: 16px;
+        display: grid;
+        grid-template-columns: minmax(0, 2.1fr) minmax(300px, 1fr);
+        gap: 14px;
       }
-      .container {
-        max-width: 1200px;
-        margin: 0 auto;
-        display: flex;
-        gap: 20px;
-        align-items: stretch;
-        height: 100%;
-      }
-      .main-pane,
-      .log-pane {
-        background: #ffffff;
-        border-radius: 12px;
-        padding: 20px;
-        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
-        height: 100%;
-      }
-      .main-pane {
-        flex: 2;
-        min-width: 0;
-        overflow: hidden;
-        display: flex;
-        flex-direction: column;
-      }
-      .log-pane {
-        flex: 1;
-        min-width: 0;
-        display: flex;
-        flex-direction: column;
+
+      .main-panel,
+      .log-panel {
+        background: var(--panel);
+        border: 1px solid #d7e1ef;
+        border-radius: 14px;
+        box-shadow: 0 14px 28px rgba(15, 23, 42, 0.09);
         min-height: 0;
       }
+
+      .main-panel {
+        display: grid;
+        grid-template-rows: auto auto minmax(0, 1fr);
+        overflow: hidden;
+      }
+
       .header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 16px;
-        margin-bottom: 12px;
+        padding: 18px 18px 10px;
+        border-bottom: 1px solid var(--line);
       }
-      .header-actions {
-        display: flex;
-        gap: 12px;
-        flex-wrap: wrap;
-        justify-content: flex-end;
-      }
-      .header-actions .row {
-        margin-bottom: 0;
-      }
-      h1 {
+
+      .header h1 {
         margin: 0 0 8px;
         font-size: 22px;
+        line-height: 1.2;
       }
-      p {
-        margin: 0 0 16px;
-        color: #475569;
+
+      .header p {
+        margin: 0 0 10px;
+        color: var(--muted);
+        font-size: 14px;
       }
-      .row {
+
+      .meta-row {
         display: flex;
         flex-wrap: wrap;
-        gap: 12px;
-        margin-bottom: 16px;
-      }
-      .field {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-        flex: 1 1 260px;
-      }
-      label {
-        font-size: 13px;
-        color: #475569;
-      }
-      input, textarea, select {
-        border: 1px solid #e2e8f0;
-        border-radius: 8px;
-        padding: 10px 12px;
-        font-size: 14px;
-        font-family: inherit;
-      }
-      button {
-        border: none;
-        border-radius: 8px;
-        padding: 10px 14px;
-        background: #2563eb;
-        color: #fff;
-        font-weight: 600;
-        cursor: pointer;
-      }
-      button.secondary {
-        background: #0f172a;
-      }
-      button.outline {
-        background: #fff;
-        color: #2563eb;
-        border: 1px solid #2563eb;
-      }
-      button.small {
-        padding: 6px 10px;
-        font-size: 12px;
-      }
-      button:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-      }
-      pre {
-        background: #0f172a;
-        color: #e2e8f0;
-        padding: 12px;
-        border-radius: 8px;
-        font-size: 12px;
-        overflow: auto;
-      }
-      .log-pane pre {
-        flex: 1;
-        min-height: 0;
-      }
-      .log-pane h3 {
-        margin-top: 0;
-      }
-      .status {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 8px;
-        font-size: 14px;
-        margin-bottom: 16px;
-      }
-      .status-row {
-        display: grid;
-        grid-template-columns: 140px 1fr;
-        gap: 8px;
+        gap: 10px 14px;
         align-items: center;
+        font-size: 12px;
+        color: #334155;
       }
-      .status-row span {
-        color: #64748b;
-      }
-      .status-row.hidden {
-        display: none;
-      }
-      .status-slot {
-        margin-top: 16px;
-      }
-      .badge {
+
+      .meta-row code {
         display: inline-block;
-        padding: 0;
-        border-radius: 0;
-        background: transparent;
-        color: inherit;
-        font-size: 14px;
-        font-weight: 500;
-      }
-      .copyable {
-        cursor: pointer;
-      }
-      .note {
-        font-size: 12px;
-        color: #64748b;
-      }
-      button.step-btn::before {
-        content: attr(data-step) ".";
-        margin-right: 6px;
-        font-weight: 700;
-        color: #e2e8f0;
-      }
-      button.step-btn.outline::before {
-        color: #2563eb;
-      }
-      button.step-btn.secondary::before {
-        color: #e2e8f0;
-      }
-      .backend-grid {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        margin-bottom: 16px;
-      }
-      .backend-item {
-        border: 1px solid #e2e8f0;
-        border-radius: 10px;
-        padding: 10px 12px;
-        background: #f8fafc;
-        display: grid;
-        grid-template-columns: 160px 1fr auto;
-        gap: 10px;
-        align-items: center;
-      }
-      .backend-item h4 {
-        margin: 0;
-        font-size: 13px;
-      }
-      .backend-item .meta {
-        font-size: 12px;
-        color: #475569;
-        line-height: 1.4;
-      }
-      .backend-item code {
-        font-size: 11px;
-        word-break: break-all;
-      }
-      @media (max-width: 960px) {
-        .backend-item {
-          grid-template-columns: 1fr;
-          gap: 8px;
-        }
-      }
-      .section {
-        border: 1px solid #e2e8f0;
-        border-radius: 12px;
-        padding: 16px;
-        margin-bottom: 16px;
-        background: #ffffff;
-      }
-      .section h2 {
-        margin: 0 0 8px;
-        font-size: 16px;
-      }
-      .section .hint {
-        margin-bottom: 12px;
-        font-size: 12px;
-        color: #64748b;
-      }
-      .tabs {
-        display: flex;
-        gap: 8px;
-        margin: 12px 0 16px;
-      }
-      .tab-button {
-        border: 1px solid #cbd5f5;
-        background: #eff6ff;
-        color: #1e40af;
-        padding: 8px 12px;
+        padding: 2px 7px;
+        border: 1px solid var(--line);
         border-radius: 999px;
-        cursor: pointer;
+        background: #f8fbff;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        padding: 3px 10px;
         font-size: 12px;
+        font-weight: 700;
+        border: 1px solid transparent;
       }
-      .tab-button.active {
-        background: #1e40af;
-        color: #fff;
-        border-color: #1e40af;
+
+      .pill.warn {
+        background: #fff7ed;
+        color: var(--warn);
+        border-color: #fed7aa;
       }
-      .tab-content {
+
+      .pill.good {
+        background: #ecfeff;
+        color: var(--good);
+        border-color: #99f6e4;
+      }
+
+      .tabs {
+        padding: 10px 18px;
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        gap: 8px;
+        overflow-x: auto;
+      }
+
+      .tab-btn {
+        border: 1px solid #bed4fa;
+        background: #eaf2ff;
+        color: #104aa2;
+        border-radius: 999px;
+        padding: 8px 14px;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+
+      .tab-btn.active {
+        background: var(--primary);
+        border-color: var(--primary);
+        color: #ffffff;
+      }
+
+      .tab-body {
+        min-height: 0;
+        overflow: hidden;
+      }
+
+      .tab-panel {
         display: none;
+        height: 100%;
+        overflow-y: auto;
+        padding: 14px 18px 18px;
+        box-sizing: border-box;
       }
-      .tab-content.active {
+
+      .tab-panel.active {
         display: block;
       }
-      .tab-body {
-        flex: 1;
+
+      .card {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 14px;
+        background: #fcfdff;
+        margin-bottom: 12px;
+      }
+
+      .card h2 {
+        margin: 0 0 6px;
+        font-size: 16px;
+      }
+
+      .card h3 {
+        margin: 0 0 8px;
+        font-size: 14px;
+      }
+
+      .help {
+        margin: 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .steps {
+        margin: 10px 0 0;
+        padding-left: 18px;
+        color: #334155;
+        font-size: 13px;
+        line-height: 1.6;
+      }
+
+      .actions {
+        margin-top: 10px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .btn {
+        border: 0;
+        border-radius: 10px;
+        padding: 9px 12px;
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+        color: #ffffff;
+        background: var(--primary);
+      }
+
+      .btn:hover {
+        background: var(--primary-deep);
+      }
+
+      .btn.secondary {
+        background: #0f172a;
+      }
+
+      .btn.outline {
+        background: #ffffff;
+        color: var(--primary);
+        border: 1px solid var(--primary);
+      }
+
+      .btn.ghost {
+        background: #ffffff;
+        color: #334155;
+        border: 1px solid var(--line);
+      }
+
+      .btn.small {
+        padding: 6px 9px;
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+        gap: 10px;
+        margin-top: 10px;
+      }
+
+      .field {
+        display: grid;
+        gap: 6px;
+      }
+
+      .field label {
+        font-size: 12px;
+        color: #475569;
+      }
+
+      .field input,
+      .field select {
+        height: 36px;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        padding: 0 10px;
+        font-size: 13px;
+        color: var(--text);
+        background: #ffffff;
+      }
+
+      .status {
+        margin-top: 8px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: #ffffff;
+        overflow: hidden;
+      }
+
+      .status-row {
+        padding: 9px 11px;
+        border-bottom: 1px solid #edf2f8;
+        display: grid;
+        grid-template-columns: 160px minmax(0, 1fr);
+        gap: 10px;
+        font-size: 13px;
+        align-items: center;
+      }
+
+      .status-row:last-child {
+        border-bottom: 0;
+      }
+
+      .status-row .k {
+        color: #64748b;
+      }
+
+      .status-row .v {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .copyable {
+        cursor: pointer;
+        color: #075985;
+      }
+
+      .backend-list {
+        margin-top: 10px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        overflow: hidden;
+        background: #ffffff;
+      }
+
+      .backend-item {
+        padding: 10px 11px;
+        border-bottom: 1px solid #edf2f8;
+        display: grid;
+        grid-template-columns: minmax(130px, 170px) minmax(0, 1fr) auto;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .backend-item:last-child {
+        border-bottom: 0;
+      }
+
+      .backend-item .name {
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .backend-item .desc {
+        font-size: 12px;
+        color: #475569;
+        line-height: 1.5;
+      }
+
+      .backend-item code {
+        font-size: 11px;
+      }
+
+      .code-block {
+        margin-top: 10px;
+        background: var(--code-bg);
+        color: var(--code-text);
+        border-radius: 10px;
+        border: 1px solid #1e293b;
+        padding: 10px;
+        overflow: auto;
+        font-family: "JetBrains Mono", "Menlo", "Consolas", monospace;
+        font-size: 12px;
+        line-height: 1.5;
+      }
+
+      .inline-note {
+        margin-top: 8px;
+        font-size: 12px;
+        color: #64748b;
+      }
+
+      .log-panel {
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr);
+        overflow: hidden;
+      }
+
+      .log-head {
+        padding: 12px;
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .log-head h3 {
+        margin: 0;
+        font-size: 14px;
+      }
+
+      #logBox {
+        margin: 0;
+        padding: 12px;
+        box-sizing: border-box;
+        background: var(--code-bg);
+        color: var(--code-text);
+        font-family: "JetBrains Mono", "Menlo", "Consolas", monospace;
+        font-size: 12px;
+        line-height: 1.5;
         min-height: 0;
         overflow-y: auto;
+        white-space: pre-wrap;
+        word-break: break-word;
       }
-      @media (max-width: 960px) {
-        .container {
-          flex-direction: column;
+
+      @media (max-width: 1100px) {
+        .app {
+          grid-template-columns: 1fr;
+          grid-template-rows: minmax(0, 1fr) 260px;
+        }
+      }
+
+      @media (max-width: 760px) {
+        .status-row {
+          grid-template-columns: 110px minmax(0, 1fr);
+        }
+
+        .backend-item {
+          grid-template-columns: 1fr;
         }
       }
     </style>
   </head>
   <body>
-    <div class="page">
-      <div class="container">
-      <div class="main-pane">
-        <div class="header">
-          <div>
-            <h1>YeYing Dapp Demo</h1>
-            <p>模拟 Dapp 连接 YeYing 钱包并完成登录。</p>
+    <div class="app">
+      <section class="main-panel">
+        <header class="header">
+          <h1>web3-bs 快速连接钱包 Demo</h1>
+          <p>
+            面向 Web3 前端开发者的标准接入示例：先完成钱包连接，再按需扩展 SIWE 登录与 UCAN 多后端授权。
+          </p>
+          <div class="meta-row">
+            <span>SDK 地址：<code id="sdkUrlView">/dist/web3-bs.umd.js</code></span>
+            <span id="sdkStatus" class="pill warn">SDK Loading...</span>
+            <span>推荐访问：<code>http://127.0.0.1:8001/examples/frontend/dapp.html</code></span>
           </div>
+        </header>
+
+        <nav class="tabs">
+          <button class="tab-btn active" data-tab="quick">快速连接钱包</button>
+          <button class="tab-btn" data-tab="siwe">SIWE 登录（单后端）</button>
+          <button class="tab-btn" data-tab="ucan">UCAN 授权（多后端）</button>
+        </nav>
+
+        <div class="tab-body">
+          <section class="tab-panel active" data-panel="quick">
+            <div class="card">
+              <h2>标准流程（推荐）</h2>
+              <p class="help">
+                这是集成 `web3-bs` 的最小流程：`getProvider` → `getPreferredAccount` → `watchAccounts/onChainChanged`。
+              </p>
+              <ol class="steps">
+                <li>检测浏览器注入 Provider（YeYing/MetaMask 等）。</li>
+                <li>连接并获取优选账户（优先复用上次已连接账户）。</li>
+                <li>注册账户和链变更监听，确保 DApp 状态自动同步。</li>
+              </ol>
+              <div class="actions">
+                <button id="detectBtn" class="btn">1 Detect Provider</button>
+                <button id="connectBtn" class="btn secondary">2 Connect Preferred Account</button>
+                <button id="listenBtn" class="btn outline">3 Start Watchers</button>
+                <button id="resetBtn" class="btn ghost">Reset Local State</button>
+              </div>
+            </div>
+
+            <div class="card">
+              <h3>钱包状态</h3>
+              <div class="status">
+                <div class="status-row"><div class="k">Provider</div><div id="providerValue" class="v">Not detected</div></div>
+                <div class="status-row"><div class="k">Address</div><div id="addressValue" class="v">-</div></div>
+                <div class="status-row"><div class="k">Chain</div><div id="chainValue" class="v">-</div></div>
+                <div class="status-row"><div class="k">Accounts</div><div id="accountsValue" class="v">-</div></div>
+                <div class="status-row"><div class="k">Watchers</div><div id="watcherValue" class="v">Not started</div></div>
+              </div>
+            </div>
+
+            <div class="card">
+              <h3>接入代码模板（可直接改造到你的 DApp）</h3>
+              <div class="actions">
+                <button id="copySnippetBtn" class="btn small ghost">Copy Snippet</button>
+              </div>
+              <pre class="code-block" id="quickSnippet"></pre>
+              <div class="inline-note">
+                说明：示例使用 `storageKey` 记录上次账户，刷新页面后可优先复用，降低重复授权频率。
+              </div>
+            </div>
+          </section>
+
+          <section class="tab-panel" data-panel="siwe">
+            <div class="card">
+              <h2>SIWE 登录（可选能力）</h2>
+              <p class="help">
+                当你需要后端登录态（access token + refresh cookie）时，使用 `loginWithChallenge`、`authFetch`、`refreshAccessToken`。
+              </p>
+              <div class="grid">
+                <div class="field">
+                  <label for="siweBackendSelect">Backend Preset</label>
+                  <select id="siweBackendSelect"></select>
+                </div>
+                <div class="field">
+                  <label for="siweBaseUrl">Auth Base URL</label>
+                  <input id="siweBaseUrl" value="http://127.0.0.1:3203/api/v1/public/auth" />
+                </div>
+                <div class="field">
+                  <label for="siweProfileUrl">Protected API URL</label>
+                  <input id="siweProfileUrl" value="http://127.0.0.1:3203/api/v1/public/profile" />
+                </div>
+              </div>
+              <div class="actions">
+                <button id="siweLoginBtn" class="btn" title="步骤 1：发起 SIWE 登录并获取 access token">1 Login</button>
+                <button id="siweProfileBtn" class="btn outline" title="步骤 2：携带 access token 调用受保护接口">2 Call Profile</button>
+                <button id="siweRefreshBtn" class="btn outline" title="步骤 3：通过 refresh cookie 刷新 access token">3 Refresh Token</button>
+                <button id="siweLogoutBtn" class="btn secondary" title="步骤 4：注销并清理登录态">4 Logout</button>
+              </div>
+              <div class="inline-note">
+                建议从同源地址打开前端页面（如 `127.0.0.1`），以确保 refresh cookie 正常携带。
+              </div>
+            </div>
+
+            <div class="card">
+              <h3>SIWE 状态</h3>
+              <div class="status">
+                <div class="status-row"><div class="k">Address</div><div id="siweAddressValue" class="v">-</div></div>
+                <div class="status-row"><div class="k">Access Token</div><div id="siweTokenValue" class="v copyable" title="点击复制完整 Token">-</div></div>
+                <div class="status-row"><div class="k">Last Profile</div><div id="siweProfileValue" class="v">-</div></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="tab-panel" data-panel="ucan">
+            <div class="card">
+              <h2>UCAN 多后端授权（可选能力）</h2>
+              <p class="help">
+                一次 Root 授权后，可按不同 `audience` 为多个后端生成 Invocation UCAN，适合多服务 DApp。
+              </p>
+              <div class="grid">
+                <div class="field">
+                  <label for="ucanBackendSelect">Backend Preset</label>
+                  <select id="ucanBackendSelect"></select>
+                </div>
+                <div class="field">
+                  <label for="ucanAppIdInput">App ID（协议推荐）</label>
+                  <input id="ucanAppIdInput" value="127.0.0.1-8001" />
+                </div>
+                <div class="field">
+                  <label for="ucanAudienceInput">Audience</label>
+                  <input id="ucanAudienceInput" value="did:web:127.0.0.1:3203" />
+                </div>
+                <div class="field">
+                  <label for="ucanProfileUrlInput">Protected API URL</label>
+                  <input id="ucanProfileUrlInput" value="http://127.0.0.1:3203/api/v1/public/profile" />
+                </div>
+                <div class="field">
+                  <label for="ucanResourceInput">Capability with</label>
+                  <input id="ucanResourceInput" value="app:node:127.0.0.1-8001" />
+                </div>
+                <div class="field">
+                  <label for="ucanActionInput">Capability can</label>
+                  <input id="ucanActionInput" value="invoke" />
+                </div>
+              </div>
+              <div class="actions">
+                <button id="ucanSessionBtn" class="btn" title="步骤 1：初始化 UCAN 会话（Session DID）">1 Init Session</button>
+                <button id="ucanRootBtn" class="btn outline" title="步骤 2：用 SIWE 创建 Root UCAN">2 Create Root</button>
+                <button id="ucanDelegationBtn" class="btn outline" title="步骤 3：创建 Delegation UCAN（Root -> Delegate）">3 Create Delegation</button>
+                <button id="ucanCallBtn" class="btn outline" title="步骤 4：生成 Invocation UCAN 并调用当前后端">4 Call Current Backend</button>
+                <button id="ucanCallAllBtn" class="btn outline" title="步骤 5：按后端 audience 逐个生成 Invocation 并调用">5 Call All Backends</button>
+                <button id="ucanClearBtn" class="btn secondary" title="步骤 6：清理 UCAN 会话/Root/Delegation/Invocation">6 Clear UCAN State</button>
+              </div>
+              <div class="inline-note">
+                协议链路：Root（SIWE）→ Delegation（可转授权）→ Invocation（请求级 token）。示例默认按该链路调用。
+              </div>
+            </div>
+
+            <div class="card">
+              <h3>后端列表</h3>
+              <div id="backendList" class="backend-list"></div>
+            </div>
+
+            <div class="card">
+              <h3>UCAN 状态</h3>
+              <div class="status">
+                <div class="status-row"><div class="k">Session DID</div><div id="ucanSessionValue" class="v">-</div></div>
+                <div class="status-row"><div class="k">Session Source</div><div id="ucanSessionSourceValue" class="v">-</div></div>
+                <div class="status-row"><div class="k">Root Expires At</div><div id="ucanRootExpValue" class="v">-</div></div>
+                <div class="status-row"><div class="k">Delegate DID</div><div id="ucanDelegateDidValue" class="v">-</div></div>
+                <div class="status-row"><div class="k">Delegation Token</div><div id="ucanDelegationValue" class="v copyable" title="点击复制完整 Delegation Token">-</div></div>
+                <div class="status-row"><div class="k">Invocation Token</div><div id="ucanTokenValue" class="v copyable" title="点击复制完整 UCAN">-</div></div>
+              </div>
+            </div>
+          </section>
         </div>
+      </section>
 
-      <div class="tabs">
-        <button class="tab-button active" data-tab="wallet">连接钱包</button>
-        <button class="tab-button" data-tab="siwe">单后端登录 (SIWE)</button>
-        <button class="tab-button" data-tab="ucan-multi">多后端登录 (UCAN)</button>
-        <button class="tab-button" data-tab="ucan-dapp">DAPP 登录 (UCAN + WebDAV)</button>
-      </div>
-
-      <div class="tab-body">
-      <div class="tab-content active" data-tab="wallet">
-        <div class="section">
-          <div class="hint">检测 Provider 并连接钱包账号。</div>
-          <div class="row">
-            <button id="detectBtn" class="step-btn" data-step="1" title="检测是否注入钱包 Provider（如 YeYing/MetaMask）">Detect Provider</button>
-            <button id="connectBtn" class="secondary step-btn" data-step="2" title="请求钱包授权并返回当前账号">Connect Wallet</button>
-          </div>
-          <div class="note">提示：切换账号请在钱包内切换。</div>
+      <aside class="log-panel">
+        <div class="log-head">
+          <h3>Log</h3>
+          <button id="clearLogBtn" class="btn small ghost">Clear</button>
         </div>
-        <div class="status-slot" data-status-slot="wallet">
-          <div class="status" id="statusPanel">
-            <div class="status-row" data-key="provider">
-              <span>Provider</span><div id="providerStatus" class="badge">Not detected</div>
-            </div>
-            <div class="status-row" data-key="address">
-              <span>Address</span><div id="addressStatus">-</div>
-            </div>
-            <div class="status-row" data-key="chain">
-              <span>Chain</span><div id="chainStatus">-</div>
-            </div>
-            <div class="status-row" data-key="siwe">
-              <span>SIWE Token</span><div id="tokenStatus" class="copyable" title="点击复制">-</div>
-            </div>
-            <div class="status-row" data-key="ucan-session">
-              <span>UCAN Session</span><div id="ucanSessionStatus">-</div>
-            </div>
-            <div class="status-row" data-key="ucan-token">
-              <span>UCAN Token</span><div id="ucanTokenStatus" class="copyable" title="点击复制">-</div>
-            </div>
-            <div class="status-row" data-key="webdav">
-              <span>WebDAV App Dir</span><div id="webdavDirStatus">-</div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="tab-content" data-tab="siwe">
-        <div class="section">
-          <div class="hint">单后端 SIWE + JWT 登录流程。</div>
-          <div class="row">
-            <div class="field">
-              <label for="baseUrl">Auth Base URL</label>
-              <select id="baseUrl"></select>
-            </div>
-            <div class="field">
-              <label for="protectedUrl">Protected API URL</label>
-              <input id="protectedUrl" value="http://127.0.0.1:3203/api/v1/public/profile" />
-            </div>
-          </div>
-          <div class="row">
-            <button id="loginBtn" class="step-btn" data-step="1" title="请求 challenge 并用钱包签名完成登录">Login</button>
-            <button id="profileBtn" class="outline step-btn" data-step="2" title="带 access token 调用受保护接口">Call Profile</button>
-            <button id="refreshBtn" class="outline step-btn" data-step="3" title="使用 refresh cookie 刷新 access token">Refresh Token</button>
-            <button id="logoutBtn" class="secondary step-btn" data-step="4" title="清理 refresh cookie 并退出登录">Logout</button>
-          </div>
-        </div>
-        <div class="status-slot" data-status-slot="siwe"></div>
-      </div>
-
-      <div class="tab-content" data-tab="ucan-multi">
-        <div class="section">
-          <div class="hint">一次 Root UCAN 授权后，可为多个后端生成 Invocation UCAN。</div>
-          <div class="row">
-            <div class="field">
-              <label for="ucanAud">UCAN Audience</label>
-              <input id="ucanAud" value="did:web:127.0.0.1:3203" />
-            </div>
-            <div class="field">
-              <label for="ucanResource">UCAN Resource</label>
-              <input id="ucanResource" value="profile" />
-            </div>
-            <div class="field">
-              <label for="ucanAction">UCAN Action</label>
-              <input id="ucanAction" value="read" />
-            </div>
-          </div>
-          <div class="row">
-            <button id="ucanSessionBtn" class="secondary step-btn" data-step="1" title="从钱包获取 UCAN Session Key">Init UCAN Session</button>
-            <button id="ucanRootBtn" class="outline step-btn" data-step="2" title="用 SIWE 生成 Root UCAN（包含能力）">Create Root UCAN</button>
-            <button id="ucanProfileBtn" class="step-btn" data-step="3" title="为单个后端生成 Invocation UCAN 并调用">Call UCAN Profile</button>
-            <button id="ucanAllBtn" class="outline step-btn" data-step="3" title="遍历所有后端生成 Invocation UCAN 并调用">Call UCAN All</button>
-            <button id="ucanLogoutBtn" class="secondary step-btn" data-step="4" title="清理 UCAN Session/Root">Logout</button>
-          </div>
-
-          <h3>Backends</h3>
-          <div class="backend-grid" id="backendList"></div>
-        </div>
-        <div class="status-slot" data-status-slot="ucan-multi"></div>
-      </div>
-
-      <div class="tab-content" data-tab="ucan-dapp">
-        <div class="section">
-          <div class="hint">单后端 UCAN 登录，并与 WebDAV 共享 Session/Root。</div>
-          <div class="row">
-            <div class="field">
-              <label for="dappBackend">DAPP Backend</label>
-              <select id="dappBackend"></select>
-            </div>
-            <div class="field">
-              <label for="dappProtectedUrl">Backend API URL</label>
-              <input id="dappProtectedUrl" value="http://127.0.0.1:3203/api/v1/public/profile" />
-            </div>
-            <div class="field">
-              <label for="dappAud">Backend Audience</label>
-              <input id="dappAud" value="did:web:127.0.0.1:3203" />
-            </div>
-          </div>
-          <div class="row">
-            <div class="field">
-              <label for="dappResource">Backend Resource</label>
-              <input id="dappResource" value="profile" />
-            </div>
-            <div class="field">
-              <label for="dappAction">Backend Action</label>
-              <input id="dappAction" value="read" />
-            </div>
-            <div class="field">
-              <label> </label>
-              <div class="note">Session/Root 共享给后端与 WebDAV。</div>
-            </div>
-          </div>
-          <div class="row">
-            <button id="dappSessionBtn" class="secondary step-btn" data-step="1" title="从钱包获取 UCAN Session Key">Init UCAN Session</button>
-            <button id="dappRootBtn" class="outline step-btn" data-step="2" title="用 SIWE 生成 Root UCAN（共享给后端/WebDAV）">Create Root UCAN</button>
-            <button id="dappLoginBtn" class="step-btn" data-step="3" title="生成 Invocation UCAN 并初始化 WebDAV">DAPP Login</button>
-            <button id="dappProfileBtn" class="outline step-btn" data-step="4" title="调用后端接口或 WebDAV 存储操作">Call Backend</button>
-            <button id="dappLogoutBtn" class="secondary step-btn" data-step="5" title="清理 UCAN Session/Root 与 WebDAV 状态">Logout</button>
-          </div>
-        </div>
-
-          <div class="section">
-          <h2>WebDAV 存储（UCAN）</h2>
-          <div class="hint">使用 UCAN token 访问 WebDAV（需服务端开启 UCAN）；首次操作会自动创建应用目录。资源建议用 app:&lt;appId&gt;，appId 建议使用前端域名或 IP:端口。</div>
-          <div class="row">
-            <div class="field">
-              <label for="webdavBase">WebDAV Base URL</label>
-              <input id="webdavBase" value="http://127.0.0.1:6065" />
-            </div>
-            <div class="field">
-              <label for="webdavPrefix">WebDAV Prefix</label>
-              <input id="webdavPrefix" value="/" />
-            </div>
-            <div class="field">
-              <label for="webdavAud">WebDAV Audience</label>
-              <input id="webdavAud" value="did:web:127.0.0.1:6065" />
-            </div>
-          </div>
-          <div class="row">
-            <div class="field">
-              <label for="webdavResource">WebDAV Resource（推荐 app:&lt;appId&gt;，不要用 app:*）</label>
-              <input id="webdavResource" value="app:127.0.0.1:8001" />
-            </div>
-            <div class="field">
-              <label for="webdavAction">WebDAV Action</label>
-              <input id="webdavAction" value="write" />
-            </div>
-            <div class="field">
-              <label for="webdavAppId">App ID（推荐前端域名或 IP:端口，映射为 /apps/&lt;appId&gt;）</label>
-              <input id="webdavAppId" value="127.0.0.1:8001" />
-            </div>
-          </div>
-          <div class="row">
-            <div class="field">
-              <label for="webdavPath">File Path</label>
-              <input id="webdavPath" value="hello.txt" />
-            </div>
-            <div class="field">
-              <label for="webdavContent">Content</label>
-              <input id="webdavContent" value="Hello WebDAV" />
-            </div>
-          </div>
-          <div class="row">
-            <button id="webdavListBtn" class="outline">List</button>
-            <button id="webdavUploadBtn">Upload</button>
-            <button id="webdavDownloadBtn" class="outline">Download</button>
-            <button id="webdavDeleteBtn" class="secondary">Delete</button>
-          </div>
-        </div>
-        <div class="status-slot" data-status-slot="ucan-dapp"></div>
-      </div>
-
-      <div class="note" id="note">
-        当前页面为 Demo。切换到对应 Tab 后按步骤操作即可。
-      </div>
-
-      </div>
-      </div>
-      <div class="log-pane">
-        <h3>Log</h3>
-        <pre id="log"></pre>
-      </div>
-    </div>
+        <pre id="logBox"></pre>
+      </aside>
     </div>
 
     <script>
-      const noteEl = document.getElementById('note');
-      const logEl = document.getElementById('log');
+      (function () {
+        const params = new URLSearchParams(location.search);
+        const sdkUrl = params.get('sdk') || '/dist/web3-bs.umd.js';
+        const storageKey = 'web3-bs:demo:last-account';
+        const sessionId = 'demo-session';
+        const delegateSessionId = 'demo-delegate-session';
+        const rootTtlMs = 24 * 60 * 60 * 1000;
 
-      function appendLog(message, data) {
-        const line = `[${new Date().toLocaleTimeString()}] ${message}`;
-        logEl.textContent += `${line}\n`;
-        if (data !== undefined) {
-          logEl.textContent += `${JSON.stringify(data, null, 2)}\n`;
+        function deriveAppId() {
+          const host = (location && location.host ? String(location.host) : '').trim();
+          if (!host) return '127.0.0.1-8001';
+          return host.replace(/[^a-zA-Z0-9._-]/g, '-');
         }
-        logEl.scrollTop = logEl.scrollHeight;
-      }
-
-      appendLog(
-        '说明：请先执行 npm run build，确保 dist/web3-bs.umd.js 存在。' +
-          ' 建议通过后端端口打开（如 http://127.0.0.1:3203/dapp.html），以便同源 Cookie 刷新。' +
-          ' 若使用静态服务器，请确保 http://127.0.0.1:8001/examples/frontend/dapp.html 可访问且 /dist/web3-bs.umd.js 存在。' +
-          ' 点击 Token 即可复制完整值。' +
-          ' 若提示 No provider found，请确认安装 YeYing 钱包扩展并允许该站点访问。'
-      );
-
-      function resolveSdkCandidates() {
-        const params = new URLSearchParams(window.location.search);
-        const override = params.get('sdk');
-        const candidates = [];
-        if (override) candidates.push(override);
-        if (location && location.origin && location.origin !== 'null') {
-          candidates.push(`${location.origin}/dist/web3-bs.umd.js`);
-        }
-        candidates.push('/dist/web3-bs.umd.js');
-        [3203, 3201, 3202, 3204].forEach(port => {
-          candidates.push(`http://127.0.0.1:${port}/dist/web3-bs.umd.js`);
-        });
-        return candidates;
-      }
-
-      function loadSdk() {
-        const candidates = resolveSdkCandidates();
-        return new Promise((resolve, reject) => {
-          let index = 0;
-          const next = () => {
-            if (index >= candidates.length) {
-              reject(new Error('Failed to load SDK'));
-              return;
-            }
-            const url = candidates[index++];
-            if (!url) return next();
-            const script = document.createElement('script');
-            script.src = url;
-            script.async = true;
-            script.onload = () => resolve(url);
-            script.onerror = () => next();
-            document.head.appendChild(script);
-          };
-          next();
-        });
-      }
-
-      function initApp(sdkUrl) {
-        appendLog('SDK loaded', { sdkUrl });
-
-        const providerStatus = document.getElementById('providerStatus');
-        const addressStatus = document.getElementById('addressStatus');
-        const chainStatus = document.getElementById('chainStatus');
-        const tokenStatus = document.getElementById('tokenStatus');
-        const ucanSessionStatus = document.getElementById('ucanSessionStatus');
-        const ucanTokenStatus = document.getElementById('ucanTokenStatus');
-        const backendListEl = document.getElementById('backendList');
-        const baseUrlInput = document.getElementById('baseUrl');
-        const protectedUrlInput = document.getElementById('protectedUrl');
-        const ucanAudInput = document.getElementById('ucanAud');
-        const ucanResourceInput = document.getElementById('ucanResource');
-        const ucanActionInput = document.getElementById('ucanAction');
-        const dappBackendInput = document.getElementById('dappBackend');
-        const dappProtectedUrlInput = document.getElementById('dappProtectedUrl');
-        const dappAudInput = document.getElementById('dappAud');
-        const dappResourceInput = document.getElementById('dappResource');
-        const dappActionInput = document.getElementById('dappAction');
-        const webdavBaseInput = document.getElementById('webdavBase');
-        const webdavPrefixInput = document.getElementById('webdavPrefix');
-        const webdavAudInput = document.getElementById('webdavAud');
-        const webdavResourceInput = document.getElementById('webdavResource');
-        const webdavActionInput = document.getElementById('webdavAction');
-        const webdavAppIdInput = document.getElementById('webdavAppId');
-        const webdavPathInput = document.getElementById('webdavPath');
-        const webdavContentInput = document.getElementById('webdavContent');
-        const webdavDirStatus = document.getElementById('webdavDirStatus');
-        const tabButtons = Array.from(document.querySelectorAll('.tab-button'));
-        const tabContents = Array.from(document.querySelectorAll('.tab-content'));
-        const statusRows = Array.from(document.querySelectorAll('.status-row'));
-        const statusPanel = document.getElementById('statusPanel');
-
-        const detectBtn = document.getElementById('detectBtn');
-        const connectBtn = document.getElementById('connectBtn');
-        const loginBtn = document.getElementById('loginBtn');
-        const profileBtn = document.getElementById('profileBtn');
-        const refreshBtn = document.getElementById('refreshBtn');
-        const logoutBtn = document.getElementById('logoutBtn');
-        const ucanSessionBtn = document.getElementById('ucanSessionBtn');
-        const ucanRootBtn = document.getElementById('ucanRootBtn');
-        const ucanProfileBtn = document.getElementById('ucanProfileBtn');
-        const ucanAllBtn = document.getElementById('ucanAllBtn');
-        const ucanLogoutBtn = document.getElementById('ucanLogoutBtn');
-        const dappSessionBtn = document.getElementById('dappSessionBtn');
-        const dappRootBtn = document.getElementById('dappRootBtn');
-        const dappLoginBtn = document.getElementById('dappLoginBtn');
-        const dappProfileBtn = document.getElementById('dappProfileBtn');
-        const dappLogoutBtn = document.getElementById('dappLogoutBtn');
-        const webdavListBtn = document.getElementById('webdavListBtn');
-        const webdavUploadBtn = document.getElementById('webdavUploadBtn');
-        const webdavDownloadBtn = document.getElementById('webdavDownloadBtn');
-        const webdavDeleteBtn = document.getElementById('webdavDeleteBtn');
-
-        let currentToken = null;
-        let ucanSession = null;
-        let ucanRoot = null;
-        let currentUcanToken = null;
-        let webdavToken = null;
-        let webdavClient = null;
-        let webdavAppDir = null;
 
         const backendConfigs = [
-          {
-            id: 'go',
-            name: 'Go Backend',
-            port: 3201,
-            baseUrl: 'http://127.0.0.1:3201/api/v1/public/auth',
-            protectedUrl: 'http://127.0.0.1:3201/api/v1/public/profile',
-            ucanAud: 'did:web:127.0.0.1:3201',
-          },
-          {
-            id: 'java',
-            name: 'Java Backend',
-            port: 3202,
-            baseUrl: 'http://127.0.0.1:3202/api/v1/public/auth',
-            protectedUrl: 'http://127.0.0.1:3202/api/v1/public/profile',
-            ucanAud: 'did:web:127.0.0.1:3202',
-          },
-          {
-            id: 'node',
-            name: 'Node Backend',
-            port: 3203,
-            baseUrl: 'http://127.0.0.1:3203/api/v1/public/auth',
-            protectedUrl: 'http://127.0.0.1:3203/api/v1/public/profile',
-            ucanAud: 'did:web:127.0.0.1:3203',
-          },
-          {
-            id: 'python',
-            name: 'Python Backend',
-            port: 3204,
-            baseUrl: 'http://127.0.0.1:3204/api/v1/public/auth',
-            protectedUrl: 'http://127.0.0.1:3204/api/v1/public/profile',
-            ucanAud: 'did:web:127.0.0.1:3204',
-          },
-        ];
+          { id: 'go', name: 'Go Backend', port: 3201 },
+          { id: 'java', name: 'Java Backend', port: 3202 },
+          { id: 'node', name: 'Node Backend', port: 3203 },
+          { id: 'python', name: 'Python Backend', port: 3204 },
+        ].map(item => ({
+          ...item,
+          baseUrl: `http://127.0.0.1:${item.port}/api/v1/public/auth`,
+          profileUrl: `http://127.0.0.1:${item.port}/api/v1/public/profile`,
+          audience: `did:web:127.0.0.1:${item.port}`,
+        }));
 
-        function renderAuthOptions() {
-          baseUrlInput.textContent = '';
-          backendConfigs.forEach(config => {
-            const option = document.createElement('option');
-            option.value = config.baseUrl;
-            option.textContent = `${config.name} (${config.port})`;
-            baseUrlInput.appendChild(option);
-          });
-        }
+        const quickSnippet = `import {
+  getProvider,
+  getPreferredAccount,
+  watchAccounts,
+  onChainChanged,
+} from '@yeying-community/web3-bs';
 
-        function renderDappOptions() {
-          if (!dappBackendInput) return;
-          dappBackendInput.textContent = '';
-          backendConfigs.forEach(config => {
-            const option = document.createElement('option');
-            option.value = config.id;
-            option.textContent = `${config.name} (${config.port})`;
-            dappBackendInput.appendChild(option);
-          });
-        }
+const provider = await getProvider({ preferYeYing: true, timeoutMs: 3000 });
+if (!provider) throw new Error('No injected wallet provider');
 
-        function findBackendByBaseUrl(value) {
-          return backendConfigs.find(config => config.baseUrl === value);
-        }
+const { account, accounts } = await getPreferredAccount({
+  provider,
+  autoConnect: true,
+  preferStored: true,
+  storageKey: '${storageKey}',
+});
+if (!account) throw new Error('No account available');
 
-        function findBackendById(id) {
-          return backendConfigs.find(config => config.id === id);
-        }
+const stopWatch = watchAccounts(
+  provider,
+  ({ account: nextAccount, accounts: nextAccounts }) => {
+    console.log('accountsChanged', nextAccount, nextAccounts);
+  },
+  { storageKey: '${storageKey}', preferStored: true }
+);
 
-        function findBackendByOrigin(origin) {
-          if (!origin) return null;
-          return backendConfigs.find(config => config.baseUrl.startsWith(origin));
-        }
+const stopChain = onChainChanged(provider, chainId => {
+  console.log('chainChanged', chainId);
+});
 
-        function log(message, data) {
-          appendLog(message, data);
-        }
+// teardown: stopWatch(); stopChain();`;
 
-      let provider = null;
-
-      function ensureSDK() {
-        if (!window.YeYingWeb3) {
-          log('SDK not loaded. Run npm run build first.');
-          return false;
-        }
-        return true;
-      }
-
-      async function syncWalletStatus(nextProvider, options = {}) {
-        if (!nextProvider) {
-          providerStatus.textContent = 'Not detected';
-          addressStatus.textContent = '-';
-          chainStatus.textContent = '-';
-          return;
-        }
-        providerStatus.textContent = nextProvider.isYeYing ? 'YeYing Provider' : 'Injected Provider';
-        const { getAccounts, requestAccounts, getChainId } = window.YeYingWeb3;
-        let accounts = await getAccounts(nextProvider);
-        if (accounts.length === 0 && options.requestIfEmpty) {
-          accounts = await requestAccounts({ provider: nextProvider });
-        }
-        addressStatus.textContent = accounts[0] || '-';
-        const chainId = await getChainId(nextProvider);
-        chainStatus.textContent = chainId || '-';
-      }
-
-      function setActiveTab(tabId) {
-        tabButtons.forEach(button => {
-          const active = button.dataset.tab === tabId;
-          button.classList.toggle('active', active);
-        });
-        tabContents.forEach(panel => {
-          const active = panel.dataset.tab === tabId;
-          panel.classList.toggle('active', active);
-        });
-        updateStatusVisibility(tabId);
-        moveStatusPanel(tabId);
-      }
-
-      function updateStatusVisibility(tabId) {
-        const visibilityMap = {
-          wallet: ['provider', 'address', 'chain'],
-          siwe: ['provider', 'address', 'chain', 'siwe'],
-          'ucan-multi': ['provider', 'address', 'chain', 'ucan-session', 'ucan-token'],
-          'ucan-dapp': ['provider', 'address', 'chain', 'ucan-session', 'ucan-token', 'webdav'],
+        const state = {
+          provider: null,
+          providerName: 'Not detected',
+          account: null,
+          accounts: [],
+          chainId: null,
+          watchStopper: null,
+          chainStopper: null,
+          watchersStarted: false,
+          siweToken: null,
+          siweLastProfile: null,
+          ucanSession: null,
+          ucanDelegateSession: null,
+          ucanRoot: null,
+          ucanRootContextKey: null,
+          ucanDelegationToken: null,
+          ucanToken: null,
         };
-        const visibleKeys = new Set(visibilityMap[tabId] || []);
-        statusRows.forEach(row => {
-          const key = row.dataset.key || '';
-          row.classList.toggle('hidden', !visibleKeys.has(key));
-        });
-      }
 
-      function moveStatusPanel(tabId) {
-        if (!statusPanel) return;
-        const slot = document.querySelector(`.tab-content[data-tab="${tabId}"] .status-slot`);
-        if (slot && statusPanel.parentElement !== slot) {
-          slot.appendChild(statusPanel);
+        const el = {
+          sdkUrlView: document.getElementById('sdkUrlView'),
+          sdkStatus: document.getElementById('sdkStatus'),
+          logBox: document.getElementById('logBox'),
+          clearLogBtn: document.getElementById('clearLogBtn'),
+          quickSnippet: document.getElementById('quickSnippet'),
+          copySnippetBtn: document.getElementById('copySnippetBtn'),
+          tabButtons: Array.from(document.querySelectorAll('.tab-btn')),
+          tabPanels: Array.from(document.querySelectorAll('.tab-panel')),
+
+          detectBtn: document.getElementById('detectBtn'),
+          connectBtn: document.getElementById('connectBtn'),
+          listenBtn: document.getElementById('listenBtn'),
+          resetBtn: document.getElementById('resetBtn'),
+          providerValue: document.getElementById('providerValue'),
+          addressValue: document.getElementById('addressValue'),
+          chainValue: document.getElementById('chainValue'),
+          accountsValue: document.getElementById('accountsValue'),
+          watcherValue: document.getElementById('watcherValue'),
+
+          siweBackendSelect: document.getElementById('siweBackendSelect'),
+          siweBaseUrl: document.getElementById('siweBaseUrl'),
+          siweProfileUrl: document.getElementById('siweProfileUrl'),
+          siweLoginBtn: document.getElementById('siweLoginBtn'),
+          siweProfileBtn: document.getElementById('siweProfileBtn'),
+          siweRefreshBtn: document.getElementById('siweRefreshBtn'),
+          siweLogoutBtn: document.getElementById('siweLogoutBtn'),
+          siweAddressValue: document.getElementById('siweAddressValue'),
+          siweTokenValue: document.getElementById('siweTokenValue'),
+          siweProfileValue: document.getElementById('siweProfileValue'),
+
+          ucanBackendSelect: document.getElementById('ucanBackendSelect'),
+          ucanAppIdInput: document.getElementById('ucanAppIdInput'),
+          ucanAudienceInput: document.getElementById('ucanAudienceInput'),
+          ucanProfileUrlInput: document.getElementById('ucanProfileUrlInput'),
+          ucanResourceInput: document.getElementById('ucanResourceInput'),
+          ucanActionInput: document.getElementById('ucanActionInput'),
+          ucanSessionBtn: document.getElementById('ucanSessionBtn'),
+          ucanRootBtn: document.getElementById('ucanRootBtn'),
+          ucanDelegationBtn: document.getElementById('ucanDelegationBtn'),
+          ucanCallBtn: document.getElementById('ucanCallBtn'),
+          ucanCallAllBtn: document.getElementById('ucanCallAllBtn'),
+          ucanClearBtn: document.getElementById('ucanClearBtn'),
+          backendList: document.getElementById('backendList'),
+          ucanSessionValue: document.getElementById('ucanSessionValue'),
+          ucanSessionSourceValue: document.getElementById('ucanSessionSourceValue'),
+          ucanRootExpValue: document.getElementById('ucanRootExpValue'),
+          ucanDelegateDidValue: document.getElementById('ucanDelegateDidValue'),
+          ucanDelegationValue: document.getElementById('ucanDelegationValue'),
+          ucanTokenValue: document.getElementById('ucanTokenValue'),
+        };
+
+        function ts() {
+          return new Date().toISOString().replace('T', ' ').slice(0, 19);
         }
-      }
 
-      function shortenToken(token) {
-        if (!token) return '-';
-        if (token.length <= 16) return token;
-        return `${token.slice(0, 6)}...${token.slice(-6)}`;
-      }
-
-      function updateTokenStatus() {
-        if (!window.YeYingWeb3?.getAccessToken) return;
-        currentToken = window.YeYingWeb3.getAccessToken({ storeToken: false });
-        tokenStatus.textContent = shortenToken(currentToken);
-        tokenStatus.title = currentToken ? '点击复制' : '-';
-      }
-
-      function updateUcanStatus() {
-        ucanSessionStatus.textContent = ucanSession?.did || '-';
-        ucanTokenStatus.textContent = shortenToken(currentUcanToken);
-        ucanTokenStatus.title = currentUcanToken ? '点击复制' : '-';
-      }
-
-      function updateWebdavStatus() {
-        if (!webdavDirStatus) return;
-        webdavDirStatus.textContent = webdavAppDir || '-';
-      }
-
-      function makeCap(resource, action) {
-        const res = (resource || '').trim();
-        const act = (action || '').trim();
-        if (!res || !act) return null;
-        return { resource: res, action: act };
-      }
-
-      function sanitizeAppId(appId) {
-        return (appId || '').trim().replace(/[^a-zA-Z0-9._-]/g, '-');
-      }
-
-      function buildAppCap(appId, action) {
-        const sanitized = sanitizeAppId(appId);
-        if (!sanitized) return null;
-        const act = (action || '').trim() || 'write';
-        return makeCap(`app:${sanitized}`, act);
-      }
-
-      function dedupeCaps(caps) {
-        const seen = new Set();
-        return (caps || []).filter(cap => {
-          if (!cap) return false;
-          const key = `${cap.resource}|${cap.action}`;
-          if (seen.has(key)) return false;
-          seen.add(key);
-          return true;
-        });
-      }
-
-      function resolveCapsFromInputs(resourceInput, actionInput) {
-        if (!resourceInput || !actionInput) return [];
-        const cap = makeCap(resourceInput.value, actionInput.value);
-        return cap ? [cap] : [];
-      }
-
-      function resolveUcanCaps() {
-        return resolveCapsFromInputs(ucanResourceInput, ucanActionInput);
-      }
-
-      function resolveDappCaps() {
-        return resolveCapsFromInputs(dappResourceInput, dappActionInput);
-      }
-
-      function resolveWebdavCaps() {
-        const explicitCap = makeCap(webdavResourceInput.value, webdavActionInput.value);
-        if (explicitCap) return [explicitCap];
-        const appCap = buildAppCap(webdavAppIdInput.value, webdavActionInput.value);
-        if (appCap) return [appCap];
-        return resolveDappCaps();
-      }
-
-      function resolveDappRootCaps() {
-        return dedupeCaps([...resolveDappCaps(), ...resolveWebdavCaps()]);
-      }
-
-      function resolveWebdavPath(rawPath) {
-        const trimmed = (rawPath || '').trim();
-        if (!trimmed) return webdavAppDir || '/';
-        if (trimmed.startsWith('/')) return trimmed;
-        const base = webdavAppDir && webdavAppDir !== '/' ? webdavAppDir : '';
-        return `${base}/${trimmed}`;
-      }
-
-      async function ensureUcanSession() {
-        const { createUcanSession } = window.YeYingWeb3;
-        ucanSession = ucanSession || (await createUcanSession());
-        updateUcanStatus();
-        return ucanSession;
-      }
-
-      async function ensureRootWithCaps(caps, label) {
-        const { getOrCreateUcanRoot } = window.YeYingWeb3;
-        await ensureUcanSession();
-        if (!caps.length) {
-          log(label ? `Missing UCAN capabilities (${label})` : 'Missing UCAN capabilities');
-          return null;
+        function appendLog(title, payload) {
+          let line = `[${ts()}] ${title}`;
+          if (payload !== undefined) {
+            try {
+              line += `\n${JSON.stringify(payload, null, 2)}`;
+            } catch {
+              line += `\n${String(payload)}`;
+            }
+          }
+          if (el.logBox.textContent) {
+            el.logBox.textContent = `${line}\n\n${el.logBox.textContent}`;
+          } else {
+            el.logBox.textContent = `${line}\n`;
+          }
         }
-        provider = provider || (await window.YeYingWeb3.getProvider({ timeoutMs: 3000 }));
-        if (!provider) {
-          log('No provider');
-          return null;
+
+        function shortToken(value, left = 12, right = 8) {
+          if (!value || typeof value !== 'string') return '-';
+          if (value.length <= left + right + 3) return value;
+          return `${value.slice(0, left)}...${value.slice(-right)}`;
         }
-        ucanRoot = await getOrCreateUcanRoot({
-          provider,
-          session: ucanSession,
-          capabilities: caps,
-        });
-        log(label ? `Root UCAN ready (${label})` : 'Root UCAN ready', ucanRoot);
 
-        updateUcanStatus();
-        return ucanRoot;
-      }
-
-      async function ensureUcanRoot() {
-        return await ensureRootWithCaps(resolveUcanCaps(), 'multi');
-      }
-
-      async function ensureDappRoot() {
-        return await ensureRootWithCaps(resolveDappRootCaps(), 'dapp');
-      }
-
-      async function createInvocationToken(options) {
-        const { createInvocationUcan } = window.YeYingWeb3;
-        if (!options?.audience) {
-          log('Missing UCAN audience');
-          return;
+        function formatTime(ms) {
+          if (!ms || Number.isNaN(ms)) return '-';
+          return new Date(ms).toLocaleString();
         }
-        const caps = options.capabilities || [];
-        if (!caps.length) {
-          log(options.label ? `Missing UCAN capabilities (${options.label})` : 'Missing UCAN capabilities');
-          return null;
-        }
-        const rootCaps = options.rootCaps || caps;
-        const root = await ensureRootWithCaps(rootCaps, options.label);
-        if (!root) return null;
-        currentUcanToken = await createInvocationUcan({
-          issuer: ucanSession,
-          audience: options.audience,
-          capabilities: caps,
-          proofs: [root],
-        });
-        updateUcanStatus();
-        return currentUcanToken;
-      }
 
-      async function callUcanProtected(target, options = {}) {
-        const caps = options.capabilities || resolveUcanCaps();
-        const token = await createInvocationToken({
-          audience: target.ucanAud,
-          capabilities: caps,
-          rootCaps: options.rootCaps,
-          label: options.label,
-        });
-        if (!token) return;
-
-        const res = await fetch(target.protectedUrl, {
-          method: 'GET',
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        let payload = null;
-        try {
-          payload = await res.json();
-        } catch {
-          payload = { status: res.status };
-        }
-        const prefix = options.logPrefix || 'UCAN profile';
-        log(`${prefix} (${target.name})`, payload);
-      }
-
-      async function ensureWebdavStorage() {
-        const { initWebDavStorage } = window.YeYingWeb3;
-        const rootCaps = resolveDappRootCaps();
-        const webdavCaps = resolveWebdavCaps();
-        if (!webdavCaps.length) {
-          log('Missing WebDAV capabilities');
-          return null;
-        }
-        provider = provider || (await window.YeYingWeb3.getProvider({ timeoutMs: 3000 }));
-        if (!provider) {
-          log('No provider');
-          return null;
-        }
-        const result = await initWebDavStorage({
-          baseUrl: webdavBaseInput.value,
-          prefix: webdavPrefixInput.value,
-          audience: webdavAudInput.value,
-          appId: webdavAppIdInput.value,
-          capabilities: rootCaps.length ? rootCaps : webdavCaps,
-          invocationCapabilities: webdavCaps,
-          provider,
-          session: ucanSession || undefined,
-          root: ucanRoot || undefined,
-        });
-        webdavClient = result.client;
-        webdavToken = result.token;
-        webdavAppDir = result.appDir;
-        ucanSession = result.session;
-        ucanRoot = result.root;
-        currentUcanToken = webdavToken;
-        updateUcanStatus();
-        updateWebdavStatus();
-        log('WebDAV storage ready', { appDir: webdavAppDir });
-        return webdavClient;
-      }
-
-      async function getWebdavClient() {
-        if (!ensureSDK()) return null;
-        return await ensureWebdavStorage();
-      }
-
-      async function clearUcanState(options = {}) {
-        if (!ensureSDK()) return;
-        const { clearUcanSession } = window.YeYingWeb3;
-        if (clearUcanSession) {
+        async function copyText(value, okLabel) {
+          if (!value || value === '-') return;
           try {
-            await clearUcanSession();
+            await navigator.clipboard.writeText(value);
+            appendLog(okLabel || 'Copied');
+            return;
+          } catch {
+            try {
+              const textarea = document.createElement('textarea');
+              textarea.value = value;
+              document.body.appendChild(textarea);
+              textarea.select();
+              document.execCommand('copy');
+              textarea.remove();
+              appendLog(okLabel || 'Copied');
+            } catch (error) {
+              appendLog('Copy failed', { error: String(error) });
+            }
+          }
+        }
+
+        function ensureSdk() {
+          if (!window.YeYingWeb3) {
+            throw new Error('YeYingWeb3 SDK not loaded');
+          }
+          return window.YeYingWeb3;
+        }
+
+        function normalizeActionExpression(raw) {
+          const text = String(raw || '').trim().toLowerCase().replace(/\|/g, ',');
+          if (!text) return '';
+          const items = text
+            .split(',')
+            .map(item => item.trim())
+            .filter(Boolean);
+          return Array.from(new Set(items)).join(',');
+        }
+
+        function ensureCapability() {
+          const withValue = String(el.ucanResourceInput.value || '').trim();
+          const canValue = normalizeActionExpression(el.ucanActionInput.value);
+          if (!withValue || !canValue) {
+            throw new Error('UCAN capability requires both with and can');
+          }
+          return {
+            with: withValue,
+            can: canValue,
+            resource: withValue,
+            action: canValue,
+          };
+        }
+
+        function buildRootCapabilities(capabilities) {
+          const source = Array.isArray(capabilities) ? capabilities : [];
+          const dedup = new Map();
+          source.forEach(capability => {
+            const withValue = capability?.with || capability?.resource || '';
+            const requestedActions = normalizeActionExpression(capability?.can || capability?.action)
+              .split(',')
+              .filter(Boolean);
+            if (!withValue || !requestedActions.length) return;
+            requestedActions.forEach(action => {
+              const key = `${withValue}|${action}`;
+              if (dedup.has(key)) return;
+              dedup.set(key, {
+                with: withValue,
+                can: action,
+                resource: withValue,
+                action,
+              });
+            });
+          });
+          return Array.from(dedup.values());
+        }
+
+        function buildBackendCapability(backend, appId, canValue = 'invoke') {
+          const action = normalizeActionExpression(canValue) || 'invoke';
+          const withValue = `app:${backend.id}:${appId}`;
+          return {
+            with: withValue,
+            can: action,
+            resource: withValue,
+            action,
+          };
+        }
+
+        function collectUcanCapabilities() {
+          const baseCapability = ensureCapability();
+          const appId = String(el.ucanAppIdInput.value || '').trim() || deriveAppId();
+          const action = normalizeActionExpression(baseCapability.can || baseCapability.action) || 'invoke';
+          const capabilities = backendConfigs.map(backend => buildBackendCapability(backend, appId, action));
+          capabilities.push(baseCapability);
+          return buildRootCapabilities(capabilities);
+        }
+
+        function capabilitiesContextKey(capabilities, sessionDid) {
+          const list = Array.isArray(capabilities)
+            ? capabilities.map(cap => `${cap.with || cap.resource || ''}|${normalizeActionExpression(cap.can || cap.action || '')}`)
+            : [];
+          list.sort();
+          return `${sessionDid || ''}|${list.join(';')}`;
+        }
+
+        function buildServiceHosts() {
+          const hosts = {};
+          backendConfigs.forEach(backend => {
+            hosts[backend.id] = `127.0.0.1:${backend.port}`;
+          });
+          return hosts;
+        }
+
+        function getBackendById(id) {
+          return backendConfigs.find(item => item.id === id) || backendConfigs[0];
+        }
+
+        function syncSiweInputs(config) {
+          if (!config) return;
+          el.siweBaseUrl.value = config.baseUrl;
+          el.siweProfileUrl.value = config.profileUrl;
+        }
+
+        function syncUcanInputs(config) {
+          if (!config) return;
+          el.ucanAudienceInput.value = config.audience;
+          el.ucanProfileUrlInput.value = config.profileUrl;
+        }
+
+        function syncUcanScopeFromAppId(force = false) {
+          const appId = String(el.ucanAppIdInput.value || '').trim();
+          if (!appId) return;
+          const backend = getBackendById(el.ucanBackendSelect.value);
+          const nextWith = `app:${backend.id}:${appId}`;
+          const current = String(el.ucanResourceInput.value || '').trim();
+          if (force || !current || current.startsWith('app:')) {
+            el.ucanResourceInput.value = nextWith;
+          }
+        }
+
+        function renderBackends() {
+          el.backendList.innerHTML = '';
+          backendConfigs.forEach(config => {
+            const row = document.createElement('div');
+            row.className = 'backend-item';
+
+            const left = document.createElement('div');
+            left.className = 'name';
+            left.textContent = `${config.name} (${config.port})`;
+
+            const mid = document.createElement('div');
+            mid.className = 'desc';
+            mid.innerHTML = `<div>Auth: <code>${config.baseUrl}</code></div>
+              <div>Profile: <code>${config.profileUrl}</code></div>
+              <div>AUD: <code>${config.audience}</code></div>`;
+
+            const btn = document.createElement('button');
+            btn.className = 'btn small outline';
+            btn.textContent = 'Use';
+            btn.addEventListener('click', () => {
+              el.ucanBackendSelect.value = config.id;
+              syncUcanInputs(config);
+              appendLog('UCAN backend selected', config);
+            });
+
+            row.appendChild(left);
+            row.appendChild(mid);
+            row.appendChild(btn);
+            el.backendList.appendChild(row);
+          });
+        }
+
+        function renderStatus() {
+          el.providerValue.textContent = state.provider ? state.providerName : 'Not detected';
+          el.addressValue.textContent = state.account || '-';
+          el.chainValue.textContent = state.chainId || '-';
+          el.accountsValue.textContent = state.accounts.length ? state.accounts.join(', ') : '-';
+          el.watcherValue.textContent = state.watchersStarted ? 'Listening' : 'Not started';
+
+          el.siweAddressValue.textContent = state.account || '-';
+          el.siweTokenValue.textContent = state.siweToken ? shortToken(state.siweToken, 16, 10) : '-';
+          if (state.siweLastProfile === null) {
+            el.siweProfileValue.textContent = '-';
+          } else {
+            let text = '';
+            try {
+              text = JSON.stringify(state.siweLastProfile);
+            } catch {
+              text = String(state.siweLastProfile);
+            }
+            el.siweProfileValue.textContent = text;
+          }
+
+          el.ucanSessionValue.textContent = state.ucanSession?.did || '-';
+          el.ucanSessionSourceValue.textContent = state.ucanSession?.source || '-';
+          el.ucanRootExpValue.textContent = state.ucanRoot ? formatTime(state.ucanRoot.exp) : '-';
+          el.ucanDelegateDidValue.textContent = state.ucanDelegateSession?.did || '-';
+          el.ucanDelegationValue.textContent = state.ucanDelegationToken
+            ? shortToken(state.ucanDelegationToken, 16, 10)
+            : '-';
+          el.ucanTokenValue.textContent = state.ucanToken ? shortToken(state.ucanToken, 16, 10) : '-';
+        }
+
+        function stopWatchers() {
+          if (state.watchStopper) {
+            try {
+              state.watchStopper();
+            } catch {
+              // ignore
+            }
+          }
+          if (state.chainStopper) {
+            try {
+              state.chainStopper();
+            } catch {
+              // ignore
+            }
+          }
+          state.watchStopper = null;
+          state.chainStopper = null;
+          state.watchersStarted = false;
+        }
+
+        function clearDerivedUcanState(reason) {
+          state.ucanRoot = null;
+          state.ucanRootContextKey = null;
+          state.ucanDelegationToken = null;
+          state.ucanToken = null;
+          renderStatus();
+          if (reason) {
+            appendLog('UCAN derived state cleared', { reason });
+          }
+        }
+
+        async function ensureProviderDetected() {
+          const sdk = ensureSdk();
+          if (state.provider) return state.provider;
+          const provider = await sdk.getProvider({ preferYeYing: true, timeoutMs: 3000 });
+          if (!provider) {
+            throw new Error('No injected wallet provider found');
+          }
+          state.provider = provider;
+          if (sdk.isYeYingProvider && sdk.isYeYingProvider(provider)) {
+            state.providerName = 'YeYing Provider';
+          } else if (provider.isMetaMask) {
+            state.providerName = 'MetaMask Provider';
+          } else {
+            state.providerName = 'EIP-1193 Provider';
+          }
+          return provider;
+        }
+
+        async function syncWalletSnapshot(requestIfEmpty) {
+          const sdk = ensureSdk();
+          const provider = await ensureProviderDetected();
+          const selected = await sdk.getPreferredAccount({
+            provider,
+            autoConnect: Boolean(requestIfEmpty),
+            preferStored: true,
+            storageKey,
+          });
+          state.account = selected.account || null;
+          state.accounts = selected.accounts || [];
+          state.chainId = await sdk.getChainId(provider);
+          renderStatus();
+          return selected;
+        }
+
+        async function startWatchers() {
+          const sdk = ensureSdk();
+          const provider = await ensureProviderDetected();
+          if (state.watchersStarted) {
+            appendLog('Watchers already running');
+            return;
+          }
+          state.watchStopper = sdk.watchAccounts(
+            provider,
+            selection => {
+              state.account = selection.account || null;
+              state.accounts = selection.accounts || [];
+              renderStatus();
+              appendLog('accountsChanged', selection);
+            },
+            { preferStored: true, storageKey }
+          );
+          state.chainStopper = sdk.onChainChanged(provider, chainId => {
+            state.chainId = chainId;
+            renderStatus();
+            appendLog('chainChanged', { chainId });
+          });
+          state.watchersStarted = true;
+          renderStatus();
+          appendLog('Watchers started');
+        }
+
+        async function ensureConnectedWallet() {
+          await ensureProviderDetected();
+          const selection = await syncWalletSnapshot(true);
+          if (!selection.account) {
+            throw new Error('No account returned by wallet');
+          }
+          return state.provider;
+        }
+
+        async function ensureUcanSessionAndRoot() {
+          const sdk = ensureSdk();
+          const provider = await ensureConnectedWallet();
+          if (!state.ucanSession) {
+            state.ucanSession = await sdk.createUcanSession({ provider, id: sessionId });
+            appendLog('UCAN session ready', {
+              did: state.ucanSession.did,
+              source: state.ucanSession.source,
+            });
+          }
+          const rootCapabilities = collectUcanCapabilities();
+          const nextContextKey = capabilitiesContextKey(rootCapabilities, state.ucanSession.did);
+          if (state.ucanRoot && state.ucanRootContextKey && state.ucanRootContextKey !== nextContextKey) {
+            clearDerivedUcanState('capability changed, root needs re-authorization');
+          }
+          if (!state.ucanRoot) {
+            const statementPayload = {
+              version: 'UCAN-AUTH-1',
+              aud: state.ucanSession.did,
+              service_hosts: buildServiceHosts(),
+              cap: rootCapabilities.map(cap => ({ with: cap.with, can: cap.can })),
+            };
+            state.ucanRoot = await sdk.createRootUcan({
+              provider,
+              session: state.ucanSession,
+              capabilities: rootCapabilities,
+              expiresInMs: rootTtlMs,
+              statement: `UCAN-AUTH ${JSON.stringify(statementPayload)}`,
+            });
+            state.ucanRootContextKey = nextContextKey;
+            appendLog('UCAN root ready', {
+              audience: state.ucanRoot.aud,
+              expiresAt: state.ucanRoot.exp,
+              caps: rootCapabilities,
+              statement: statementPayload,
+            });
+          }
+          renderStatus();
+        }
+
+        async function ensureUcanDelegation() {
+          const sdk = ensureSdk();
+          const provider = await ensureConnectedWallet();
+          await ensureUcanSessionAndRoot();
+          const delegationCapabilities = collectUcanCapabilities();
+          if (!state.ucanDelegateSession) {
+            state.ucanDelegateSession = await sdk.createUcanSession({
+              provider,
+              id: delegateSessionId,
+            });
+            appendLog('UCAN delegate session ready', {
+              did: state.ucanDelegateSession.did,
+              source: state.ucanDelegateSession.source,
+            });
+          }
+          if (!state.ucanDelegationToken) {
+            state.ucanDelegationToken = await sdk.createDelegationUcan({
+              issuer: state.ucanSession,
+              audience: state.ucanDelegateSession.did,
+              capabilities: delegationCapabilities,
+              proofs: [state.ucanRoot],
+            });
+            appendLog('UCAN delegation ready', {
+              from: state.ucanSession.did,
+              to: state.ucanDelegateSession.did,
+              capabilities: delegationCapabilities,
+            });
+          }
+          renderStatus();
+        }
+
+        async function createInvocationFor(audience, capability) {
+          const sdk = ensureSdk();
+          await ensureUcanDelegation();
+          const invokeCapability = capability || ensureCapability();
+          state.ucanToken = await sdk.createInvocationUcan({
+            issuer: state.ucanDelegateSession,
+            audience,
+            capabilities: [invokeCapability],
+            proofs: [state.ucanDelegationToken],
+          });
+          renderStatus();
+          return state.ucanToken;
+        }
+
+        async function safeReadResponse(response) {
+          const text = await response.text();
+          if (!text) return null;
+          try {
+            return JSON.parse(text);
+          } catch {
+            return { raw: text };
+          }
+        }
+
+        async function handleWithLog(label, fn) {
+          try {
+            await fn();
           } catch (error) {
-            log('Clear UCAN session failed', { error: String(error) });
+            appendLog(`${label} failed`, { error: String(error) });
           }
         }
-        ucanSession = null;
-        ucanRoot = null;
-        currentUcanToken = null;
-        if (options.clearWebdav) {
-          webdavToken = null;
-          webdavClient = null;
-          webdavAppDir = null;
-          updateWebdavStatus();
+
+        function switchTab(tab) {
+          el.tabButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tab));
+          el.tabPanels.forEach(panel => panel.classList.toggle('active', panel.dataset.panel === tab));
         }
-        updateUcanStatus();
-      }
 
-      function applyBackend(config, options = {}) {
-        if (!config) return;
-        baseUrlInput.value = config.baseUrl;
-        protectedUrlInput.value = config.protectedUrl;
-        if (options.updateUcan !== false) {
-          ucanAudInput.value = config.ucanAud;
+        function fillBackendSelectors() {
+          backendConfigs.forEach(config => {
+            const o1 = document.createElement('option');
+            o1.value = config.id;
+            o1.textContent = `${config.name} (${config.port})`;
+            el.siweBackendSelect.appendChild(o1);
+
+            const o2 = document.createElement('option');
+            o2.value = config.id;
+            o2.textContent = `${config.name} (${config.port})`;
+            el.ucanBackendSelect.appendChild(o2);
+          });
+          const defaultBackend = getBackendById('node');
+          el.siweBackendSelect.value = defaultBackend.id;
+          el.ucanBackendSelect.value = defaultBackend.id;
+          syncSiweInputs(defaultBackend);
+          syncUcanInputs(defaultBackend);
         }
-        if (!options.silent) {
-          log('Backend selected', config);
-        }
-      }
 
-      function applyDappBackend(config, options = {}) {
-        if (!config || !dappBackendInput) return;
-        dappBackendInput.value = config.id;
-        dappProtectedUrlInput.value = config.protectedUrl;
-        dappAudInput.value = config.ucanAud;
-        if (!options.silent) {
-          log('DAPP backend selected', config);
-        }
-      }
-
-      function renderBackends() {
-        backendListEl.textContent = '';
-        backendConfigs.forEach(config => {
-          const item = document.createElement('div');
-          item.className = 'backend-item';
-
-          const title = document.createElement('h4');
-          title.textContent = `${config.name} (${config.port})`;
-
-          const meta = document.createElement('div');
-          meta.className = 'meta';
-          meta.innerHTML = `
-            <div>Auth: <code>${config.baseUrl}</code></div>
-            <div>Profile: <code>${config.protectedUrl}</code></div>
-            <div>UCAN AUD: <code>${config.ucanAud}</code></div>
-          `;
-
-          const button = document.createElement('button');
-          button.className = 'outline small';
-          button.textContent = 'Use this backend';
-          button.addEventListener('click', () => applyBackend(config));
-
-          item.appendChild(title);
-          item.appendChild(meta);
-          item.appendChild(button);
-          backendListEl.appendChild(item);
-        });
-      }
-
-      function setDefaultsFromLocation() {
-        if (!location || location.protocol === 'file:') return;
-        const origin = location.origin;
-        if (!origin) return;
-        const matched = findBackendByOrigin(origin);
-        if (matched) {
-          applyBackend(matched, { silent: true });
-          applyDappBackend(matched, { silent: true });
-        }
-        const fallback = backendConfigs.find(config => config.id === 'node') || backendConfigs[0];
-        if (fallback) {
-          applyBackend(fallback, { silent: true });
-          applyDappBackend(fallback, { silent: true });
-        }
-        const host = location.host || '';
-        if (host) {
-          const appIdPlaceholders = ['', '127.0.0.1', '127.0.0.1:8001'];
-          if (webdavAppIdInput && appIdPlaceholders.includes(webdavAppIdInput.value)) {
-            webdavAppIdInput.value = host;
+        async function loadSdk() {
+          el.sdkUrlView.textContent = sdkUrl;
+          if (window.YeYingWeb3) {
+            el.sdkStatus.textContent = 'SDK Loaded';
+            el.sdkStatus.className = 'pill good';
+            return;
           }
-          const resourcePlaceholders = ['', 'app:127.0.0.1', 'app:127.0.0.1:8001'];
-          if (webdavResourceInput && resourcePlaceholders.includes(webdavResourceInput.value)) {
-            webdavResourceInput.value = `app:${host}`;
+          await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = sdkUrl;
+            script.async = true;
+            script.onload = resolve;
+            script.onerror = () => reject(new Error(`Failed to load ${sdkUrl}`));
+            document.head.appendChild(script);
+          });
+          if (!window.YeYingWeb3) {
+            throw new Error('window.YeYingWeb3 is undefined after SDK load');
           }
-        }
-      }
-
-      detectBtn.addEventListener('click', async () => {
-        if (!ensureSDK()) return;
-        const { getProvider } = window.YeYingWeb3;
-        provider = await getProvider({ timeoutMs: 3000 });
-        if (provider) {
-          log('Provider detected', { isYeYing: provider.isYeYing, isMetaMask: provider.isMetaMask });
-          await syncWalletStatus(provider);
-        } else {
-          providerStatus.textContent = 'Not detected';
-          log('No provider found');
-        }
-      });
-
-      tabButtons.forEach(button => {
-        button.addEventListener('click', () => setActiveTab(button.dataset.tab));
-      });
-
-      connectBtn.addEventListener('click', async () => {
-        if (!ensureSDK()) return;
-        const { requestAccounts, getChainId, onAccountsChanged, onChainChanged } = window.YeYingWeb3;
-        provider = provider || (await window.YeYingWeb3.getProvider({ timeoutMs: 3000 }));
-        if (!provider) return log('No provider');
-
-        const accounts = await requestAccounts({ provider });
-        addressStatus.textContent = accounts[0] || '-';
-        const chainId = await getChainId(provider);
-        chainStatus.textContent = chainId || '-';
-        log('Connected', { accounts, chainId });
-
-        onAccountsChanged(provider, (next) => {
-          addressStatus.textContent = next[0] || '-';
-          log('accountsChanged', next);
-        });
-
-        onChainChanged(provider, (next) => {
-          chainStatus.textContent = next;
-          log('chainChanged', next);
-        });
-      });
-
-      loginBtn.addEventListener('click', async () => {
-        if (!ensureSDK()) return;
-        const { loginWithChallenge } = window.YeYingWeb3;
-        provider = provider || (await window.YeYingWeb3.getProvider({ timeoutMs: 3000 }));
-        if (!provider) return log('No provider');
-
-        await syncWalletStatus(provider, { requestIfEmpty: true });
-        const login = await loginWithChallenge({
-          provider,
-          baseUrl: baseUrlInput.value,
-          storeToken: false,
-        });
-
-        updateTokenStatus();
-        log('Login success', login);
-      });
-
-      profileBtn.addEventListener('click', async () => {
-        if (!ensureSDK()) return;
-        const { authFetch } = window.YeYingWeb3;
-
-        const res = await authFetch(protectedUrlInput.value, { method: 'GET' }, {
-          baseUrl: baseUrlInput.value,
-          storeToken: false,
-        });
-
-        let payload = null;
-        try {
-          payload = await res.json();
-        } catch {
-          payload = { status: res.status };
+          el.sdkStatus.textContent = 'SDK Loaded';
+          el.sdkStatus.className = 'pill good';
         }
 
-        log('Profile response', payload);
-        updateTokenStatus();
-      });
+        function bindEvents() {
+          el.tabButtons.forEach(btn => {
+            btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+          });
 
-      refreshBtn.addEventListener('click', async () => {
-        if (!ensureSDK()) return;
-        const { refreshAccessToken } = window.YeYingWeb3;
+          el.clearLogBtn.addEventListener('click', () => {
+            el.logBox.textContent = '';
+          });
 
-        const result = await refreshAccessToken({
-          baseUrl: baseUrlInput.value,
-          storeToken: false,
-        });
+          el.copySnippetBtn.addEventListener('click', async () => {
+            await copyText(quickSnippet, 'Snippet copied');
+          });
 
-        updateTokenStatus();
-        log('Refresh success', result);
-      });
+          el.siweTokenValue.addEventListener('click', async () => {
+            await copyText(state.siweToken, 'SIWE token copied');
+          });
 
-      logoutBtn.addEventListener('click', async () => {
-        if (!ensureSDK()) return;
-        const { logout } = window.YeYingWeb3;
+          el.ucanTokenValue.addEventListener('click', async () => {
+            await copyText(state.ucanToken, 'UCAN token copied');
+          });
 
-        const result = await logout({
-          baseUrl: baseUrlInput.value,
-          storeToken: false,
-        });
+          el.ucanDelegationValue.addEventListener('click', async () => {
+            await copyText(state.ucanDelegationToken, 'UCAN delegation copied');
+          });
 
-        updateTokenStatus();
-        log('Logout', result);
-      });
+          el.siweBackendSelect.addEventListener('change', () => {
+            const config = getBackendById(el.siweBackendSelect.value);
+            syncSiweInputs(config);
+            appendLog('SIWE backend selected', config);
+          });
 
-      ucanSessionBtn.addEventListener('click', async () => {
-        if (!ensureSDK()) return;
-        await ensureUcanSession();
-        log('UCAN session ready', ucanSession);
-      });
+          el.ucanBackendSelect.addEventListener('change', () => {
+            const config = getBackendById(el.ucanBackendSelect.value);
+            syncUcanInputs(config);
+            syncUcanScopeFromAppId(true);
+            appendLog('UCAN backend selected', config);
+          });
 
-      ucanRootBtn.addEventListener('click', async () => {
-        if (!ensureSDK()) return;
-        await ensureUcanRoot();
-      });
+          el.ucanAppIdInput.addEventListener('change', () => {
+            syncUcanScopeFromAppId(true);
+            clearDerivedUcanState('appId changed');
+            appendLog('UCAN appId updated', {
+              appId: el.ucanAppIdInput.value,
+              with: el.ucanResourceInput.value,
+            });
+          });
 
-      ucanProfileBtn.addEventListener('click', async () => {
-        if (!ensureSDK()) return;
-        await callUcanProtected({
-          name: 'Custom',
-          protectedUrl: protectedUrlInput.value,
-          ucanAud: ucanAudInput.value,
-        });
-      });
+          el.ucanResourceInput.addEventListener('change', () => {
+            clearDerivedUcanState('capability.with changed');
+          });
 
-      ucanAllBtn.addEventListener('click', async () => {
-        if (!ensureSDK()) return;
-        for (const config of backendConfigs) {
-          await callUcanProtected(config);
+          el.ucanActionInput.addEventListener('change', () => {
+            clearDerivedUcanState('capability.can changed');
+          });
+
+          el.detectBtn.addEventListener('click', () =>
+            handleWithLog('Detect provider', async () => {
+              await ensureProviderDetected();
+              await syncWalletSnapshot(false);
+              appendLog('Provider detected', { provider: state.providerName });
+            })
+          );
+
+          el.connectBtn.addEventListener('click', () =>
+            handleWithLog('Connect wallet', async () => {
+              const selected = await syncWalletSnapshot(true);
+              appendLog('Wallet connected', selected);
+            })
+          );
+
+          el.listenBtn.addEventListener('click', () =>
+            handleWithLog('Start watchers', async () => {
+              await startWatchers();
+            })
+          );
+
+          el.resetBtn.addEventListener('click', () =>
+            handleWithLog('Reset local state', async () => {
+              const sdk = ensureSdk();
+              stopWatchers();
+              state.provider = null;
+              state.providerName = 'Not detected';
+              state.account = null;
+              state.accounts = [];
+              state.chainId = null;
+              state.siweToken = null;
+              state.siweLastProfile = null;
+              state.ucanToken = null;
+              state.ucanRoot = null;
+              state.ucanRootContextKey = null;
+              state.ucanSession = null;
+              state.ucanDelegateSession = null;
+              state.ucanDelegationToken = null;
+              if (sdk.clearUcanSession) {
+                await sdk.clearUcanSession(sessionId);
+                await sdk.clearUcanSession(delegateSessionId);
+              }
+              if (sdk.clearAccessToken) {
+                sdk.clearAccessToken({ storeToken: false });
+              }
+              renderStatus();
+              appendLog('Local SDK state reset');
+            })
+          );
+
+          el.siweLoginBtn.addEventListener('click', () =>
+            handleWithLog('SIWE login', async () => {
+              const sdk = ensureSdk();
+              const provider = await ensureConnectedWallet();
+              const result = await sdk.loginWithChallenge({
+                provider,
+                address: state.account || undefined,
+                baseUrl: el.siweBaseUrl.value.trim(),
+                storeToken: false,
+              });
+              state.siweToken = result.token || null;
+              renderStatus();
+              appendLog('SIWE login success', result);
+            })
+          );
+
+          el.siweProfileBtn.addEventListener('click', () =>
+            handleWithLog('Call profile', async () => {
+              const sdk = ensureSdk();
+              const response = await sdk.authFetch(
+                el.siweProfileUrl.value.trim(),
+                { method: 'GET' },
+                {
+                  baseUrl: el.siweBaseUrl.value.trim(),
+                  storeToken: false,
+                }
+              );
+              const payload = await safeReadResponse(response);
+              state.siweLastProfile = payload;
+              renderStatus();
+              appendLog('SIWE profile response', { status: response.status, payload });
+            })
+          );
+
+          el.siweRefreshBtn.addEventListener('click', () =>
+            handleWithLog('Refresh token', async () => {
+              const sdk = ensureSdk();
+              const result = await sdk.refreshAccessToken({
+                baseUrl: el.siweBaseUrl.value.trim(),
+                storeToken: false,
+              });
+              state.siweToken = result.token || state.siweToken;
+              renderStatus();
+              appendLog('Refresh success', result);
+            })
+          );
+
+          el.siweLogoutBtn.addEventListener('click', () =>
+            handleWithLog('Logout', async () => {
+              const sdk = ensureSdk();
+              const result = await sdk.logout({
+                baseUrl: el.siweBaseUrl.value.trim(),
+                storeToken: false,
+              });
+              state.siweToken = null;
+              state.siweLastProfile = null;
+              renderStatus();
+              appendLog('Logout success', result);
+            })
+          );
+
+          el.ucanSessionBtn.addEventListener('click', () =>
+            handleWithLog('Init UCAN session', async () => {
+              const sdk = ensureSdk();
+              const provider = await ensureConnectedWallet();
+              state.ucanSession = await sdk.createUcanSession({ provider, id: sessionId });
+              renderStatus();
+              appendLog('UCAN session ready', {
+                did: state.ucanSession.did,
+                source: state.ucanSession.source,
+              });
+            })
+          );
+
+          el.ucanRootBtn.addEventListener('click', () =>
+            handleWithLog('Create UCAN root', async () => {
+              state.ucanRoot = null;
+              state.ucanRootContextKey = null;
+              state.ucanDelegationToken = null;
+              state.ucanToken = null;
+              await ensureUcanSessionAndRoot();
+            })
+          );
+
+          el.ucanDelegationBtn.addEventListener('click', () =>
+            handleWithLog('Create UCAN delegation', async () => {
+              state.ucanDelegationToken = null;
+              state.ucanToken = null;
+              await ensureUcanDelegation();
+            })
+          );
+
+          el.ucanCallBtn.addEventListener('click', () =>
+            handleWithLog('Call current backend with UCAN', async () => {
+              const sdk = ensureSdk();
+              const token = await createInvocationFor(el.ucanAudienceInput.value.trim());
+              const response = await sdk.authUcanFetch(
+                el.ucanProfileUrlInput.value.trim(),
+                { method: 'GET' },
+                { ucan: token }
+              );
+              const payload = await safeReadResponse(response);
+              appendLog('UCAN call response', {
+                status: response.status,
+                audience: el.ucanAudienceInput.value.trim(),
+                payload,
+              });
+            })
+          );
+
+          el.ucanCallAllBtn.addEventListener('click', () =>
+            handleWithLog('Call all backends with UCAN', async () => {
+              const sdk = ensureSdk();
+              const appId = String(el.ucanAppIdInput.value || '').trim() || deriveAppId();
+              const action = normalizeActionExpression(el.ucanActionInput.value) || 'invoke';
+              for (const backend of backendConfigs) {
+                const capability = buildBackendCapability(backend, appId, action);
+                const token = await createInvocationFor(backend.audience, capability);
+                const response = await sdk.authUcanFetch(
+                  backend.profileUrl,
+                  { method: 'GET' },
+                  { ucan: token }
+                );
+                const payload = await safeReadResponse(response);
+                appendLog(`UCAN all -> ${backend.name}`, {
+                  status: response.status,
+                  audience: backend.audience,
+                  capability,
+                  payload,
+                });
+              }
+            })
+          );
+
+          el.ucanClearBtn.addEventListener('click', () =>
+            handleWithLog('Clear UCAN state', async () => {
+              const sdk = ensureSdk();
+              if (sdk.clearUcanSession) {
+                await sdk.clearUcanSession(sessionId);
+                await sdk.clearUcanSession(delegateSessionId);
+              }
+              state.ucanSession = null;
+              state.ucanDelegateSession = null;
+              state.ucanRoot = null;
+              state.ucanRootContextKey = null;
+              state.ucanDelegationToken = null;
+              state.ucanToken = null;
+              renderStatus();
+              appendLog('UCAN state cleared');
+            })
+          );
         }
-      });
 
-      ucanLogoutBtn.addEventListener('click', async () => {
-        await clearUcanState({ clearWebdav: true });
-        log('UCAN logout');
-      });
+        async function init() {
+          el.quickSnippet.textContent = quickSnippet;
+          const appId = deriveAppId();
+          el.ucanAppIdInput.value = appId;
+          syncUcanScopeFromAppId(true);
+          fillBackendSelectors();
+          renderBackends();
+          bindEvents();
+          renderStatus();
+          appendLog('Demo ready', {
+            build: 'npm run build',
+            frontend: 'python3 -m http.server 8001',
+            url: 'http://127.0.0.1:8001/examples/frontend/dapp.html',
+          });
+          await loadSdk();
+          appendLog('SDK loaded', { sdkUrl });
+        }
 
-      dappSessionBtn.addEventListener('click', async () => {
-        if (!ensureSDK()) return;
-        await ensureUcanSession();
-        log('DAPP UCAN session ready', ucanSession);
-      });
-
-      dappRootBtn.addEventListener('click', async () => {
-        if (!ensureSDK()) return;
-        await ensureDappRoot();
-      });
-
-      dappLoginBtn.addEventListener('click', async () => {
-        if (!ensureSDK()) return;
-        const caps = resolveDappCaps();
-        const token = await createInvocationToken({
-          audience: dappAudInput.value,
-          capabilities: caps,
-          rootCaps: resolveDappRootCaps(),
-          label: 'dapp',
+        init().catch(error => {
+          el.sdkStatus.textContent = 'SDK Load Failed';
+          el.sdkStatus.className = 'pill warn';
+          appendLog('Init failed', {
+            error: String(error),
+            tip: '请先运行 npm run build，并确认 /dist/web3-bs.umd.js 可访问',
+          });
         });
-        if (token) {
-          log('DAPP UCAN token ready', { audience: dappAudInput.value });
-        }
-        try {
-          await ensureWebdavStorage();
-        } catch (error) {
-          log('WebDAV init failed', { error: String(error) });
-        }
-      });
-
-      dappProfileBtn.addEventListener('click', async () => {
-        if (!ensureSDK()) return;
-        await callUcanProtected({
-          name: 'DAPP Backend',
-          protectedUrl: dappProtectedUrlInput.value,
-          ucanAud: dappAudInput.value,
-        }, {
-          capabilities: resolveDappCaps(),
-          rootCaps: resolveDappRootCaps(),
-          label: 'dapp',
-          logPrefix: 'DAPP profile',
-        });
-      });
-
-      dappLogoutBtn.addEventListener('click', async () => {
-        await clearUcanState({ clearWebdav: true });
-        log('DAPP logout');
-      });
-
-      webdavListBtn.addEventListener('click', async () => {
-        if (!ensureSDK()) return;
-        const client = await getWebdavClient();
-        if (!client) return;
-        const targetPath = webdavAppDir || '/';
-        const listing = await client.listDirectory(targetPath);
-        log('WebDAV list', { path: targetPath, listing });
-      });
-
-      webdavUploadBtn.addEventListener('click', async () => {
-        if (!ensureSDK()) return;
-        const client = await getWebdavClient();
-        if (!client) return;
-        const path = resolveWebdavPath(webdavPathInput.value);
-        await client.upload(path, webdavContentInput.value);
-        log('WebDAV upload ok', { path });
-      });
-
-      webdavDownloadBtn.addEventListener('click', async () => {
-        if (!ensureSDK()) return;
-        const client = await getWebdavClient();
-        if (!client) return;
-        const path = resolveWebdavPath(webdavPathInput.value);
-        const content = await client.downloadText(path);
-        log('WebDAV download', { path, content });
-      });
-
-      webdavDeleteBtn.addEventListener('click', async () => {
-        if (!ensureSDK()) return;
-        const client = await getWebdavClient();
-        if (!client) return;
-        const path = resolveWebdavPath(webdavPathInput.value);
-        await client.remove(path);
-        log('WebDAV delete ok', { path });
-      });
-
-      async function copyToken() {
-        if (!currentToken) return;
-        try {
-          await navigator.clipboard.writeText(currentToken);
-          log('Token copied');
-        } catch (error) {
-          try {
-            const input = document.createElement('textarea');
-            input.value = currentToken;
-            document.body.appendChild(input);
-            input.select();
-            document.execCommand('copy');
-            input.remove();
-            log('Token copied');
-          } catch (fallbackError) {
-            log('Copy failed', fallbackError);
-          }
-        }
-      }
-
-      tokenStatus.addEventListener('click', copyToken);
-
-      async function copyUcanToken() {
-        if (!currentUcanToken) return;
-        try {
-          await navigator.clipboard.writeText(currentUcanToken);
-          log('UCAN token copied');
-        } catch (error) {
-          try {
-            const input = document.createElement('textarea');
-            input.value = currentUcanToken;
-            document.body.appendChild(input);
-            input.select();
-            document.execCommand('copy');
-            input.remove();
-            log('UCAN token copied');
-          } catch (fallbackError) {
-            log('Copy failed', fallbackError);
-          }
-        }
-      }
-
-      ucanTokenStatus.addEventListener('click', copyUcanToken);
-
-      baseUrlInput.addEventListener('change', () => {
-        const selected = findBackendByBaseUrl(baseUrlInput.value);
-        if (selected) {
-          applyBackend(selected, { updateUcan: false });
-        }
-      });
-
-      if (dappBackendInput) {
-        dappBackendInput.addEventListener('change', () => {
-          const selected = findBackendById(dappBackendInput.value);
-          if (selected) {
-            applyDappBackend(selected);
-          }
-        });
-      }
-
-      renderAuthOptions();
-      renderDappOptions();
-      const defaultBackend = backendConfigs.find(config => config.id === 'node') || backendConfigs[0];
-      if (defaultBackend) {
-        applyBackend(defaultBackend, { silent: true });
-        applyDappBackend(defaultBackend, { silent: true });
-      }
-      renderBackends();
-      setDefaultsFromLocation();
-      const initialTab = document.querySelector('.tab-button.active')?.dataset.tab || 'wallet';
-      updateStatusVisibility(initialTab);
-      moveStatusPanel(initialTab);
-
-      if (location.protocol === 'file:') {
-        noteEl.textContent =
-          '当前为 file:// 打开。扩展通常不会注入 provider。请使用本地服务器打开该页面，或在扩展设置中允许访问文件 URL。';
-      }
-      }
-
-      loadSdk()
-        .then(initApp)
-        .catch(error => {
-          noteEl.textContent =
-            'SDK 加载失败。请先运行 npm run build 并确保 dist/web3-bs.umd.js 可访问。' +
-            '也可通过 ?sdk=http://127.0.0.1:3203/dist/web3-bs.umd.js 指定 SDK 地址。';
-          appendLog('SDK load failed', { error: String(error) });
-        });
+      })();
     </script>
   </body>
 </html>

@@ -119,12 +119,12 @@
             <input id="audience" value="did:web:localhost:8100" />
           </div>
           <div>
-            <label for="resource">Capability Resource</label>
-            <input id="resource" value="profile" />
+            <label for="capWith">Capability with</label>
+            <input id="capWith" value="app:all:mobile-demo" />
           </div>
           <div>
-            <label for="action">Capability Action</label>
-            <input id="action" value="read" />
+            <label for="capCan">Capability can</label>
+            <input id="capCan" value="read" />
           </div>
         </div>
       </div>
@@ -157,8 +157,8 @@
       const profileUrlInput = document.getElementById('profileUrl');
       const subjectInput = document.getElementById('subject');
       const audienceInput = document.getElementById('audience');
-      const resourceInput = document.getElementById('resource');
-      const actionInput = document.getElementById('action');
+      const capWithInput = document.getElementById('capWith');
+      const capCanInput = document.getElementById('capCan');
       const sessionOut = document.getElementById('sessionOut');
       const ucanOut = document.getElementById('ucanOut');
       const logEl = document.getElementById('log');
@@ -185,13 +185,19 @@
         return `${token.slice(0, 40)}...${token.slice(-32)}`;
       }
 
+      function deriveAppId() {
+        const host = typeof location !== 'undefined' && location.host ? String(location.host).trim() : '';
+        if (!host) return 'mobile-demo';
+        return host.replace(/[^a-zA-Z0-9._-]/g, '-');
+      }
+
       function getCaps() {
         return [
           {
-            resource: resourceInput.value.trim(),
-            action: actionInput.value.trim(),
+            with: capWithInput.value.trim(),
+            can: capCanInput.value.trim(),
           },
-        ].filter(cap => cap.resource && cap.action);
+        ].filter(cap => cap.with && cap.can);
       }
 
       function resolveSdkCandidates() {
@@ -235,6 +241,8 @@
         if (!location || !location.origin || location.origin === 'null') return;
         authBaseInput.value = `${location.origin}/api/v1/public/auth/central`;
         profileUrlInput.value = `${location.origin}/api/v1/public/profile/me`;
+        const appId = deriveAppId();
+        capWithInput.value = `app:all:${appId}`;
       }
 
       async function fetchIssuer() {

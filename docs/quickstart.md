@@ -22,7 +22,7 @@ npm install @yeying-community/web3-bs
 - PC Web 为主
 - 浏览器里已有钱包插件
 - 需要标准连接、签名、SIWE 登录
-- 若插件是 YeYing，且支持 UCAN RPC，还可以走多后端 UCAN 授权
+- 若需要 UCAN 多后端授权，优先走钱包 UCAN RPC；不支持时 SDK 会回退本地 Ed25519 session
 
 ### 2.2 App 钱包路线
 
@@ -46,9 +46,10 @@ npm install @yeying-community/web3-bs
 
 - 浏览器内有可用插件钱包
 - 至少支持 EIP-1193
-- 若要走 UCAN，多后端授权链路需要钱包支持 YeYing 专有 RPC：
-  - `yeying_ucan_session`
-  - `yeying_ucan_sign`
+- 若要走 UCAN，多后端授权链路要求可完成 SIWE 签名（Root），session 签名优先用钱包 UCAN RPC：
+  - `yeying_ucan_session`（可选，优先）
+  - `yeying_ucan_sign`（可选，优先）
+  - 若 RPC 不可用，`web3-bs` 自动回退本地 Ed25519 session key（浏览器端 IndexedDB 持久化）
 
 ### 3.2 典型流程图
 
@@ -58,13 +59,13 @@ Detect Provider -> Request Accounts -> Sign / Login -> Access API -> Access WebD
 
 ### 3.3 适用钱包
 
-- YeYing：支持标准连接 + YeYing UCAN 路线
-- MetaMask 等 EIP-1193 钱包：支持连接、签名、challenge/SIWE 登录
+- YeYing：支持标准连接 + 钱包托管 UCAN session/sign
+- MetaMask 等 EIP-1193 钱包：支持连接、签名、challenge/SIWE 登录；UCAN session/sign 可走 SDK 本地回退
 
 关键边界：
 - “支持插件钱包”不等于“所有插件都支持 UCAN”
-- 通用插件通常只能走标准签名 / JWT 登录
-- YeYing 插件可以走完整 UCAN 路线
+- 通用插件至少可走标准签名 / JWT 登录
+- UCAN 路径优先使用钱包 UCAN RPC，不支持时可走 SDK 本地 session 回退
 
 ### 3.4 最短接入：只做连接与签名
 
@@ -121,12 +122,13 @@ const refreshed = await refreshAccessToken({
 - refresh 流程
 - `authFetch` 的统一请求行为
 
-### 3.6 YeYing 增强路线：UCAN 一次授权多个后端
+### 3.6 UCAN 路线：一次授权多个后端
 
-这条路只适用于支持 YeYing UCAN RPC 的钱包。
+这条路优先使用钱包 UCAN RPC；若钱包不支持，SDK 会自动回退本地 UCAN session。
 
 ```ts
 import {
+  createDelegationUcan,
   createUcanSession,
   getOrCreateUcanRoot,
   createInvocationUcan,
@@ -136,19 +138,30 @@ import {
 const provider = await getProvider({ preferYeYing: true });
 if (!provider) throw new Error('No injected wallet provider');
 
+const appId = window.location.host || '127.0.0.1:8001';
+const scope = `app:all:${appId}`;
+
 const session = await createUcanSession({ provider });
 
 const root = await getOrCreateUcanRoot({
   provider,
   session,
-  capabilities: [{ resource: 'profile', action: 'read' }],
+  capabilities: [{ with: scope, can: 'invoke' }],
+});
+
+const delegateSession = await createUcanSession({ provider, id: 'demo-delegate' });
+const delegation = await createDelegationUcan({
+  issuer: session,
+  audience: delegateSession.did,
+  capabilities: [{ with: scope, can: 'invoke' }],
+  proofs: [root],
 });
 
 const ucan = await createInvocationUcan({
-  issuer: session,
+  issuer: delegateSession,
   audience: 'did:web:api.example.com',
-  capabilities: [{ resource: 'profile', action: 'read' }],
-  proofs: [root],
+  capabilities: [{ with: scope, can: 'invoke' }],
+  proofs: [delegation],
 });
 
 const res = await authUcanFetch(
@@ -161,6 +174,7 @@ const res = await authUcanFetch(
 这条路线下，SDK 负责维护：
 - UCAN session 读取与创建
 - Root proof 复用
+- Delegation / Invocation 证明链组装
 - Invocation token 缓存
 - 面向多个后端的 audience/capability 组装
 
@@ -194,7 +208,7 @@ const storage = await initWebDavStorage({
   prefix: '/dav',
   audience: 'did:web:webdav.example.com',
   appId,
-  capabilities: [{ resource: `app:${appId}`, action: 'write' }],
+  capabilities: [{ with: `app:all:${appId}`, can: 'write' }],
 });
 
 await storage.client.upload(`${storage.appDir}/hello.txt`, 'Hello WebDAV');
@@ -203,7 +217,7 @@ await storage.client.upload(`${storage.appDir}/hello.txt`, 'Hello WebDAV');
 WebDAV 注意：
 - `baseUrl` 只填根地址
 - 子路径通过 `prefix` 指定
-- capability 的资源格式由目标服务决定，可能是 `app:<appId>`，也可能是 `app:all:<appId>`
+- capability 推荐使用 `with/can`，资源格式统一为 `app:<scope>:<appId>`（常用 `app:all:<appId>`）
 
 ## 4. 路线二：App 钱包
 
@@ -265,19 +279,19 @@ const res = await authFetch(
 );
 ```
 
-#### 4.3.2 App 钱包也支持 YeYing UCAN RPC
+#### 4.3.2 App 钱包的 UCAN 路径
 
 这种情况可以直接复用“钱包插件路线”的 UCAN 路径。
 
 也就是说：
 - Provider 入口不同
-- `web3-bs` 的 UCAN 调用方式不变
+- `web3-bs` 的 UCAN 调用方式不变（钱包 UCAN RPC 优先，不可用时本地回退）
 
 ### 4.4 App 钱包路线的关键限制
 
 - `web3-bs` 不自带 WalletConnect 或 App Bridge 实现
 - 它假设你已经拿到了可调用的 `provider`
-- 如果 App 钱包只支持签名，不支持 YeYing UCAN RPC，那么 UCAN 路线不可用
+- 如果 App 钱包支持 EIP-1193 签名，UCAN 路线通常可用；是否使用钱包托管 UCAN session 取决于是否实现 UCAN RPC
 
 ### 4.5 App 钱包下的 WebDAV
 
@@ -285,7 +299,7 @@ const res = await authFetch(
 - challenge/SIWE 登录 -> JWT
 - `createWebDavClient` 访问 WebDAV
 
-只有在 App 钱包具备 YeYing UCAN 能力时，再走：
+若 App 钱包可完成签名，就可以走：
 - `initWebDavStorage`
 
 ## 5. 路线三：中心化服务
@@ -352,7 +366,7 @@ const issued = await issueCentralUcan({
   baseUrl: 'https://api.example.com/api/v1/public/auth/central',
   sessionToken: session.sessionToken,
   audience: 'did:web:api.example.com',
-  capabilities: [{ resource: 'profile', action: 'read' }],
+  capabilities: [{ with: 'app:all:mobile-demo', can: 'read' }],
 });
 
 const res = await authCentralUcanFetch(
@@ -384,7 +398,7 @@ const res = await authCentralUcanFetch(
 
 更细一点：
 - 只要连接、签名、登录：任意 EIP-1193 钱包即可
-- 要走 UCAN 多后端授权：优先 YeYing 钱包能力
+- 要走 UCAN 多后端授权：优先钱包 UCAN RPC；不支持时使用 SDK 本地 session 回退
 - 要覆盖移动端无插件：优先中心化服务路线
 
 ## 7. 最常见的 API 组合

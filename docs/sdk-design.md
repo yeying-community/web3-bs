@@ -214,12 +214,13 @@ sequenceDiagram
 ### 6.4 UCAN（多后端 / Delegation）
 
 1. 前端检测钱包 Provider（`getProvider` / `requestAccounts`）。
-2. 由钱包生成 UCAN Session Key：`createUcanSession`。
-3. 用 SIWE 作为桥梁生成 Root UCAN（包含能力 `[{ resource, action }]`）：`createRootUcan` 或 `getOrCreateUcanRoot`。
-4. 针对每个后端生成 Invocation UCAN：`createInvocationUcan({ issuer: session, audience, capabilities, proofs: [root] })`。
-5. 调用后端业务接口：`Authorization: Bearer <UCAN>`（可用 `authUcanFetch`）。
-6. 如需可转授权，先生成 Delegation UCAN：`createDelegationUcan`，由被委任方再生成 Invocation UCAN。
-7. Root/Invocation 过期时重新生成（或由 `initWebDavStorage` 自动处理）。
+2. 生成 UCAN Session Key：`createUcanSession`（优先钱包 UCAN RPC，失败回退本地 Ed25519 key）。
+3. 用 SIWE 作为桥梁生成 Root UCAN（能力建议 `with/can`）：`createRootUcan` 或 `getOrCreateUcanRoot`。
+4. 生成被委任方 Session（Delegation Target）：`createUcanSession({ id: '<delegate-id>' })`。
+5. 生成 Delegation UCAN：`createDelegationUcan({ issuer: rootSession, audience: delegateSession.did, proofs: [root] })`。
+6. 针对每个后端生成 Invocation UCAN：`createInvocationUcan({ issuer: delegateSession, audience, capabilities, proofs: [delegation] })`。
+7. 调用后端业务接口：`Authorization: Bearer <UCAN>`（可用 `authUcanFetch`）。
+8. Root/Invocation 过期时重新生成（或由 `initWebDavStorage` 自动处理）。
 
 提示：Root 过期后前端应重新授权并重试（重新生成 Root + Invocation）。
 
@@ -266,27 +267,34 @@ sequenceDiagram
   participant BB as 后端 B
 
   用户 ->> FE: 打开 Dapp / 初始化 UCAN
-  FE ->> WP: createUcanSession
-  WP -->> FE: 返回 UCAN session key (did, signer)
+  FE ->> WP: createUcanSession (优先钱包 RPC)
+  alt 钱包支持 UCAN RPC
+    WP -->> FE: 返回钱包托管 UCAN session key (did, signer)
+  else 钱包不支持 UCAN RPC
+    FE -->> FE: 本地生成/加载 Ed25519 session key (IndexedDB)
+  end
   FE ->> WP: createRootUcan (SIWE 桥接)
   WP -->> FE: 返回 Root UCAN (proof)
 
-  FE ->> WP: createInvocationUcan(audience=后端 A)
+  FE ->> WP: createUcanSession(id=delegate)
+  WP -->> FE: 返回 delegate session
+  FE ->> WP: createDelegationUcan(audience=delegate.did)
+  WP -->> FE: 返回 Delegation UCAN
+
+  FE ->> WP: createInvocationUcan(issuer=delegate, audience=后端 A)
   WP -->> FE: 返回 Invocation UCAN (A)
   FE ->> BA: GET /public/profile (Authorization: Bearer UCAN-A)
   BA -->> FE: 返回响应
 
-  FE ->> WP: createInvocationUcan(audience=后端 B)
+  FE ->> WP: createInvocationUcan(issuer=delegate, audience=后端 B)
   WP -->> FE: 返回 Invocation UCAN (B)
   FE ->> BB: GET /public/profile (Authorization: Bearer UCAN-B)
   BB -->> FE: 返回响应
-
-  Note over FE,WP: 可选委任链\ncreateDelegationUcan -> 转交 -> createInvocationUcan
 ```
 
 ### 6.5 UCAN 授权 API（SIWE Bridge）
 
-SDK 通过 YeYing 钱包生成 UCAN Session Key 并完成签名（由钱包后台隔离私钥）。
+SDK 会优先通过钱包 UCAN RPC 获取 session key 并签名（钱包托管私钥）；若钱包不支持，则回退为浏览器端本地 Ed25519 session key 并签名。  
 Root UCAN 基于 SIWE 签名，用于多后端统一鉴权。UCAN 以 `Authorization: Bearer <UCAN>` 发送，后端会验证 UCAN 证明链与能力。
 
 新增 API：
@@ -298,28 +306,43 @@ Root UCAN 基于 SIWE 签名，用于多后端统一鉴权。UCAN 以 `Authoriza
 
 示例：
 ```ts
-const session = await createUcanSession();
+const appId = window.location.host || '127.0.0.1:8001';
+const scope = `app:all:${appId}`;
+
+const session = await createUcanSession({ provider });
 const root = await createRootUcan({
   provider,
   session,
-  capabilities: [{ resource: 'profile', action: 'read' }],
+  capabilities: [{ with: scope, can: 'invoke' }],
+});
+
+const delegate = await createUcanSession({ provider, id: 'demo-delegate' });
+const delegation = await createDelegationUcan({
+  issuer: session,
+  audience: delegate.did,
+  capabilities: [{ with: scope, can: 'invoke' }],
+  proofs: [root],
 });
 
 const ucan = await createInvocationUcan({
-  issuer: session,
+  issuer: delegate,
   audience: 'did:web:127.0.0.1:3203',
-  capabilities: [{ resource: 'profile', action: 'read' }],
-  proofs: [root],
+  capabilities: [{ with: scope, can: 'invoke' }],
+  proofs: [delegation],
 });
 
 const res = await authUcanFetch('http://127.0.0.1:3203/api/v1/public/profile', { method: 'GET' }, { ucan });
 console.log(await res.json());
 ```
 
-后端默认要求的能力为 `resource=profile`、`action=read`，可通过环境变量覆盖：
+兼容说明：
+- SDK 与后端都优先推荐 `with/can`。
+- 历史字段 `resource/action` 仍兼容，但新项目建议统一迁移到 `with/can`。
+
+后端默认要求的能力为 `with=app:node:*`、`can=invoke`（Node 示例后端），可通过环境变量覆盖：
 - `UCAN_AUD`：服务 DID（默认 `did:web:127.0.0.1:3203`）
-- `UCAN_RESOURCE`：资源（默认 `profile`）
-- `UCAN_ACTION`：动作（默认 `read`）
+- `UCAN_RESOURCE`：资源（默认 `app:node:*`）
+- `UCAN_ACTION`：动作（默认 `invoke`）
 
 提示：如需可转授权，使用 `createDelegationUcan` 创建委任链，再用被委任的 Key 生成 Invocation UCAN。
 
@@ -481,9 +504,9 @@ OpenAPI 规范：`docs/openapi.yaml`
 - 若使用 UCAN 鉴权：
   - 服务端需接受 `Authorization: Bearer <UCAN>`。
   - `audience` 要与服务端配置一致（例如 `did:web:127.0.0.1:6065`）。
-  - `capabilities` 需匹配服务端 UCAN 策略（`web3.ucan.required_resource` / `required_action`）。
-    - WebDAV 推荐以 `app:<appId>` 作为核心能力（不要用 `app:*`）。
-    - 只读场景（`required_action=read`）请用 `appAction: 'read'` 或 `action: 'read'`。
+  - `capabilities` 需匹配服务端 UCAN 策略（优先 `web3.ucan.required_capabilities`，兼容 `required_resource/required_action`）。
+    - 资源建议统一为 `app:<scope>:<appId>`，常用 `with=app:all:<appId>`。
+    - 只读场景建议 `can='read'`，读写场景建议 `can='read,write'`。
 - `prefix` 为可选的 WebDAV 前缀；`appId` 默认映射为 `/apps/<appId>`（若服务端修改了 `app_scope.path_prefix`，请用 `appDir` 对齐）。
 - 若要使用配额与回收站相关方法，服务端需提供以下 JSON 接口：
   - `GET /api/v1/public/webdav/quota`
@@ -504,7 +527,7 @@ const webdav = await initWebDavStorage({
   baseUrl: 'http://127.0.0.1:6065',
   audience: 'did:web:127.0.0.1:6065',
   appId,
-  capabilities: [{ resource: `app:${appId}`, action: 'write' }],
+  capabilities: [{ with: `app:all:${appId}`, can: 'write' }],
 });
 ```
 
@@ -539,7 +562,7 @@ const storage = await initWebDavStorage({
   baseUrl: 'http://127.0.0.1:6065',
   audience: 'did:web:127.0.0.1:6065',
   appId,
-  capabilities: [{ resource: `app:${appId}`, action: 'write' }],
+  capabilities: [{ with: `app:all:${appId}`, can: 'write' }],
 });
 await storage.client.upload(`${storage.appDir}/hello.txt`, 'Hello WebDAV');
 ```
@@ -555,7 +578,7 @@ await storage.client.upload(`${storage.appDir}/hello.txt`, 'Hello WebDAV');
 - `copy(path, destination, overwrite?)`
 - `getQuota()` / `listRecycle()` / `recoverRecycle(hash)` / `deleteRecycle(hash)` / `clearRecycle()`
 
-提示：`capabilities` 需与 WebDAV 后端 UCAN 策略一致，推荐 `app:<appId>`；`appId` 默认映射为 `/apps/<appId>`（建议使用前端域名或 IP:端口）。如服务端修改了 `app_scope.path_prefix`，请传 `appDir` 对齐。
+提示：`capabilities` 需与 WebDAV 后端 UCAN 策略一致，推荐 `with=app:all:<appId>`（资源格式 `app:<scope>:<appId>`）；`appId` 默认映射为 `/apps/<appId>`（建议使用前端域名或 IP:端口）。如服务端修改了 `app_scope.path_prefix`，请传 `appDir` 对齐。
 
 ## 10. Dapp 快速接入（推荐）
 
@@ -575,7 +598,7 @@ const session = await initDappSession({
     baseUrl: 'http://127.0.0.1:6065',
     audience: 'did:web:127.0.0.1:6065',
     appId,
-    capabilities: [{ resource: `app:${appId}`, action: 'write' }],
+    capabilities: [{ with: `app:all:${appId}`, can: 'write' }],
   },
 });
 

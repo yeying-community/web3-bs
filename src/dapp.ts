@@ -3,7 +3,10 @@ import { loginWithChallenge } from './auth/siwe';
 import {
   createInvocationUcan,
   createUcanSession,
+  getCapabilityAction,
+  getCapabilityResource,
   getOrCreateUcanRoot,
+  normalizeUcanCapabilities,
   UcanCapability,
   UcanRootProof,
   UcanSessionKey,
@@ -89,25 +92,21 @@ function normalizeAction(action?: string): string | null {
 function buildAppCapability(options: InitWebDavStorageOptions): UcanCapability | null {
   if (!options.appId) return null;
   const action = normalizeAction(options.appAction) || DEFAULT_APP_ACTION;
+  const resource = `app:all:${sanitizeAppId(options.appId)}`;
   return {
-    resource: `app:${sanitizeAppId(options.appId)}`,
+    with: resource,
+    can: action,
+    resource,
     action,
   };
 }
 
 function hasAppCapability(caps: UcanCapability[]): boolean {
-  return (caps || []).some(cap => typeof cap?.resource === 'string' && cap.resource.startsWith('app:'));
+  return (caps || []).some(cap => getCapabilityResource(cap).startsWith('app:'));
 }
 
 function dedupeCapabilities(caps: UcanCapability[]): UcanCapability[] {
-  const seen = new Set<string>();
-  return (caps || []).filter(cap => {
-    if (!cap || !cap.resource || !cap.action) return false;
-    const key = `${cap.resource}|${cap.action}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+  return normalizeUcanCapabilities(caps);
 }
 
 function ensureAppCapability(caps: UcanCapability[], options: InitWebDavStorageOptions): UcanCapability[] {
@@ -128,7 +127,13 @@ function resolveAppDir(options: InitWebDavStorageOptions): string | undefined {
 }
 
 function buildCapsKey(caps: UcanCapability[]): string {
-  return JSON.stringify(caps || []);
+  const canonical = (caps || [])
+    .map(cap => ({
+      with: getCapabilityResource(cap),
+      can: getCapabilityAction(cap),
+    }))
+    .filter(cap => Boolean(cap.with && cap.can));
+  return JSON.stringify(canonical);
 }
 
 function buildTokenCacheKey(issuer: UcanSessionKey, audience: string, caps: UcanCapability[]): string {

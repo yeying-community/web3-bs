@@ -29,9 +29,10 @@ COOKIE_SAMESITE = {
 }.get(COOKIE_SAMESITE_RAW, "Lax")
 COOKIE_SECURE = os.getenv("COOKIE_SECURE", "").lower() in ("1", "true", "yes")
 UCAN_AUD = os.getenv("UCAN_AUD", f"did:web:127.0.0.1:{PORT}")
-# Recommended: UCAN_RESOURCE=app:<appId> and UCAN_ACTION=read,write; appId = frontend domain or IP:port.
-UCAN_RESOURCE = os.getenv("UCAN_RESOURCE", "profile")
-UCAN_ACTION = os.getenv("UCAN_ACTION", "read")
+# Recommended: capability.with=app:all:<appId> and capability.can=invoke/read/write.
+# Env keeps legacy names for convenience.
+UCAN_RESOURCE = os.getenv("UCAN_RESOURCE", "app:python:*")
+UCAN_ACTION = os.getenv("UCAN_ACTION", "invoke")
 REQUIRED_UCAN_CAP = [{"resource": UCAN_RESOURCE, "action": UCAN_ACTION}]
 
 DEFAULT_ORIGINS = [
@@ -123,16 +124,73 @@ def match_pattern(pattern: str, value: str) -> bool:
     return pattern == value
 
 
+def normalize_action_expression(raw) -> str:
+    if not isinstance(raw, str):
+        return ""
+    normalized = raw.strip().lower().replace("|", ",")
+    if not normalized:
+        return ""
+    items = [item.strip() for item in normalized.split(",") if item.strip()]
+    if not items:
+        return ""
+    dedup = []
+    for item in items:
+        if item not in dedup:
+            dedup.append(item)
+    return ",".join(dedup)
+
+
+def capability_resource(cap) -> str:
+    if not isinstance(cap, dict):
+        return ""
+    if isinstance(cap.get("with"), str) and cap.get("with").strip():
+        return cap.get("with").strip()
+    if isinstance(cap.get("resource"), str) and cap.get("resource").strip():
+        return cap.get("resource").strip()
+    return ""
+
+
+def capability_action(cap) -> str:
+    if not isinstance(cap, dict):
+        return ""
+    if isinstance(cap.get("can"), str) and cap.get("can").strip():
+        return normalize_action_expression(cap.get("can"))
+    if isinstance(cap.get("action"), str) and cap.get("action").strip():
+        return normalize_action_expression(cap.get("action"))
+    return ""
+
+
+def action_allows(available_action: str, required_action: str) -> bool:
+    if required_action == "*" or available_action == "*":
+        return True
+    available = normalize_action_expression(available_action)
+    required = normalize_action_expression(required_action)
+    if not available or not required:
+        return False
+    available_set = set(item for item in available.split(",") if item)
+    required_list = [item for item in required.split(",") if item]
+    return all(item in available_set for item in required_list)
+
+
 def caps_allow(available, required) -> bool:
     if not isinstance(available, list) or not available:
         return False
     for req in required:
+        req_resource = capability_resource(req)
+        req_action = capability_action(req)
+        if not req_resource or not req_action:
+            return False
         matched = False
         for cap in available:
             if not isinstance(cap, dict):
                 continue
-            if match_pattern(cap.get("resource", ""), req.get("resource", "")) and match_pattern(
-                cap.get("action", ""), req.get("action", "")
+            cap_resource = capability_resource(cap)
+            cap_action = capability_action(cap)
+            if (
+                cap_resource
+                and cap_action
+                and match_pattern(cap_resource, req_resource)
+                and action_allows(cap_action, req_action)
             ):
                 matched = True
                 break

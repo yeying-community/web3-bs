@@ -26,7 +26,7 @@ npm install @yeying-community/web3-bs
 
 ## 接入路线
 
-- 钱包插件路线：适合浏览器内已有 YeYing、MetaMask 等插件钱包的 DApp；优先使用 `getProvider`、`loginWithChallenge`，若钱包支持 YeYing UCAN RPC，再扩展到 UCAN 多后端授权
+- 钱包插件路线：适合浏览器内已有 YeYing、MetaMask 等插件钱包的 DApp；优先使用 `getProvider`、`loginWithChallenge`，并可扩展到 UCAN 多后端授权（钱包 UCAN RPC 优先，不支持时 SDK 自动回退本地 Ed25519 session）
 - App 钱包路线：适合移动端 Web；前提是钱包 App 或桥接层能暴露 EIP-1193 provider，通常使用 `requestAccounts`、`signMessage`、`loginWithChallenge`
 - 中心化服务路线：适合无钱包、无插件或更关注接入成本的场景；使用 JWT 或中心化 UCAN，通常组合 `setAccessToken`、`authFetch`、`createCentralSession`、`issueCentralUcan`
 
@@ -106,8 +106,24 @@ npm install @yeying-community/web3-bs
 - UCAN 调用的 `audience` 与后端 `UCAN_AUD` 一致（如 `did:web:127.0.0.1:3202`）
 
 提示：`examples/frontend/dapp.html` 已内置多后端列表，可在一次 UCAN 授权后依次调用多个服务。
+提示：Demo 的 UCAN 流程按协议链路实现为 `Root（SIWE） -> Delegation -> Invocation`，便于按步骤理解多后端授权。
 
 ## 常见问题
+
+### 如何快速验证能力矩阵（钱包 UCAN + 本地回退）
+
+执行：
+
+```bash
+npm run check:capabilities
+```
+
+该脚本会自动验证：
+- 钱包 UCAN RPC 路径（`createUcanSession` 返回 `source=wallet`）
+- UCAN 本地回退路径（钱包不支持 `yeying_ucan_*` 时 `source=local`）
+- `createRootUcan` + `createInvocationUcan` 两条链路
+- `initWebDavStorage` 的 UCAN 自动初始化
+- 中心化 UCAN API 是否已导出（`createCentralSession` / `issueCentralUcan` / `authCentralUcanFetch`）
 
 ### 刷新token失败
 
@@ -121,9 +137,9 @@ npm install @yeying-community/web3-bs
 - 确认 `baseUrl` 指向 WebDAV 服务（默认 `http://127.0.0.1:6065`），不要误用 320x 认证后端。
 - `baseUrl` 不应包含任何路径；若服务挂载在子路径，请用 `prefix` 指定（例如 `/dav`）。
 - `audience` 必须与 WebDAV 服务端 `web3.ucan.audience` 一致（例如 `did:web:127.0.0.1:6065`）。
-- `capabilities` 与服务端要求一致（`web3.ucan.required_resource` / `required_action`，或环境变量 `WEBDAV_UCAN_RESOURCE` / `WEBDAV_UCAN_ACTION`）。
-  - WebDAV 推荐使用 `app:<appId>#read|write`，不要用 `app:*`；`appId` 建议使用前端域名或 IP:端口。
-  - 若启用了 app scope（推荐 `required_resource=app:*`），请确保路径在 `/apps/<appId>/`（或 `app_scope.path_prefix`）下。
+- `capabilities` 与服务端要求一致（优先 `web3.ucan.required_capabilities`，兼容 `required_resource/required_action`）。
+  - SDK 推荐使用 `with/can`（兼容 `resource/action`），例如：`{ with: "app:all:<appId>", can: "read,write" }`。
+  - 推荐资源统一使用 `app:<scope>:<appId>`，常用为 `with=app:all:<appId>`；请确保路径在 `/apps/<appId>/`（或 `app_scope.path_prefix`）下。
 - Token 过期或缓存异常时，清理 UCAN 会话并重新登录/生成 Root + Invocation。
 
 ### UCAN audience mismatch
