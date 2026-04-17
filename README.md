@@ -35,9 +35,9 @@ npm install @yeying-community/web3-bs
 ## 示例
 
 - Frontend Dapp (HTML): `examples/frontend/dapp.html`
-- Frontend Mobile Central UCAN Demo: `examples/frontend/mobile-central-ucan.html`
+- Frontend Dapp Central UCAN Tab: `examples/frontend/dapp.html`（`UCAN 授权（服务）`）
 - Frontend Dapp (TS module): `examples/frontend/main.ts`
-- Backend server (Node): `examples/backend/node/server.js`
+- Backend server (Node.js): `examples/backend/node/server.js`
 - Backend server (Go): `examples/backend/go/main.go`
 - Backend server (Python): `examples/backend/python/app.py`
 - Backend server (Java): `examples/backend/java/src/main/java/com/yeying/demo/AuthServer.java`
@@ -45,7 +45,7 @@ npm install @yeying-community/web3-bs
 ## 本地验证
 
 1. 构建 SDK：`npm run build`
-2. 启动后端：`scripts/backend.sh start node`（将 `node` 替换为 `go` / `python` / `java`）
+2. 启动后端：`scripts/backend.sh start nodejs`（将 `nodejs` 替换为 `go` / `python` / `java`）
 3. 启动前端：`python3 -m http.server 8001 --bind 127.0.0.1`
 4. 访问：`http://127.0.0.1:8001/examples/frontend/dapp.html`
 5. 确保安装 YeYing 钱包扩展插件
@@ -58,12 +58,12 @@ npm install @yeying-community/web3-bs
 ## 后端脚本用法
 
 通用格式：
-`./scripts/backend.sh <start|stop|restart|status> <node|go|python|java|all> [--setup] [--no-stop]`
+`./scripts/backend.sh <start|stop|restart|status> <nodejs|go|python|java|all> [--setup] [--no-stop]`
 
 示例：
 ```bash
-# 启动 Node 后端
-./scripts/backend.sh start node
+# 启动 Node.js 后端
+./scripts/backend.sh start nodejs
 
 # 启动 Go 后端并安装依赖/构建
 ./scripts/backend.sh start go --setup
@@ -151,6 +151,6 @@ npm run check:capabilities
 
 解决思路：
 - 生成 UCAN 时的 `audience` 必须与目标后端的 `UCAN_AUD` 完全一致。
-  - 例如 Node 后端：`did:web:127.0.0.1:3203`
+  - 例如 Node.js 后端：`did:web:127.0.0.1:3203`
   - 例如 WebDAV 服务：`did:web:127.0.0.1:6065`
 - 多后端联调时，确保每个后端使用对应的 `audience` 生成 Invocation UCAN。

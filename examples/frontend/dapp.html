@@ -422,7 +422,8 @@
         <nav class="tabs">
           <button class="tab-btn active" data-tab="quick">快速连接钱包</button>
           <button class="tab-btn" data-tab="siwe">SIWE 登录（单后端）</button>
-          <button class="tab-btn" data-tab="ucan">UCAN 授权（多后端）</button>
+          <button class="tab-btn" data-tab="ucan">UCAN 授权（插件）</button>
+          <button class="tab-btn" data-tab="central">UCAN 授权（服务）</button>
         </nav>
 
         <div class="tab-body">
@@ -481,11 +482,11 @@
                 </div>
                 <div class="field">
                   <label for="siweBaseUrl">Auth Base URL</label>
-                  <input id="siweBaseUrl" value="http://127.0.0.1:3203/api/v1/public/auth" />
+                  <input id="siweBaseUrl" value="http://127.0.0.1:8100/api/v1/public/auth" />
                 </div>
                 <div class="field">
                   <label for="siweProfileUrl">Protected API URL</label>
-                  <input id="siweProfileUrl" value="http://127.0.0.1:3203/api/v1/public/profile" />
+                  <input id="siweProfileUrl" value="http://127.0.0.1:8100/api/v1/public/profile" />
                 </div>
               </div>
               <div class="actions">
@@ -526,15 +527,15 @@
                 </div>
                 <div class="field">
                   <label for="ucanAudienceInput">Audience</label>
-                  <input id="ucanAudienceInput" value="did:web:127.0.0.1:3203" />
+                  <input id="ucanAudienceInput" value="did:web:127.0.0.1:8100" />
                 </div>
                 <div class="field">
                   <label for="ucanProfileUrlInput">Protected API URL</label>
-                  <input id="ucanProfileUrlInput" value="http://127.0.0.1:3203/api/v1/public/profile" />
+                  <input id="ucanProfileUrlInput" value="http://127.0.0.1:8100/api/v1/public/profile" />
                 </div>
                 <div class="field">
                   <label for="ucanResourceInput">Capability with</label>
-                  <input id="ucanResourceInput" value="app:node:127.0.0.1-8001" />
+                  <input id="ucanResourceInput" value="app:nodejs:127.0.0.1-8001" />
                 </div>
                 <div class="field">
                   <label for="ucanActionInput">Capability can</label>
@@ -571,6 +572,70 @@
               </div>
             </div>
           </section>
+
+          <section class="tab-panel" data-panel="central">
+            <div class="card">
+              <h2>中心化 UCAN（`/auth/central/*`）</h2>
+              <p class="help">
+                适用于移动端无插件场景。流程：先完成 SIWE 登录拿 JWT，再通过 `session -> issue` 拿 UCAN 调业务接口。
+              </p>
+              <div class="grid">
+                <div class="field">
+                  <label for="centralBackendSelect">Backend Preset</label>
+                  <select id="centralBackendSelect"></select>
+                </div>
+                <div class="field">
+                  <label for="centralSiweBaseUrl">SIWE Auth Base URL</label>
+                  <input id="centralSiweBaseUrl" value="http://127.0.0.1:8100/api/v1/public/auth" />
+                </div>
+                <div class="field">
+                  <label for="centralBaseUrl">Central Base URL</label>
+                  <input id="centralBaseUrl" value="http://127.0.0.1:8100/api/v1/public/auth/central" />
+                </div>
+                <div class="field">
+                  <label for="centralProfileUrl">Protected API URL</label>
+                  <input id="centralProfileUrl" value="http://127.0.0.1:8100/api/v1/public/profile" />
+                </div>
+                <div class="field">
+                  <label for="centralSubjectInput">Subject</label>
+                  <input id="centralSubjectInput" value="mobile-user-001" />
+                </div>
+                <div class="field">
+                  <label for="centralAudienceInput">Audience</label>
+                  <input id="centralAudienceInput" value="did:web:127.0.0.1:8100" />
+                </div>
+                <div class="field">
+                  <label for="centralWithInput">Capability with</label>
+                  <input id="centralWithInput" value="app:all:mobile-demo" />
+                </div>
+                <div class="field">
+                  <label for="centralCanInput">Capability can</label>
+                  <input id="centralCanInput" value="read" />
+                </div>
+              </div>
+              <div class="actions">
+                <button id="centralLoginBtn" class="btn" title="步骤 1：SIWE 登录，获取 JWT access token">1 SIWE Login</button>
+                <button id="centralIssuerBtn" class="btn outline" title="步骤 2：读取 Issuer 配置">2 Issuer Info</button>
+                <button id="centralSessionBtn" class="btn outline" title="步骤 3：创建中心化签发会话">3 Create Session</button>
+                <button id="centralIssueBtn" class="btn outline" title="步骤 4：签发 UCAN">4 Issue UCAN</button>
+                <button id="centralProfileBtn" class="btn outline" title="步骤 5：携带 UCAN 调用业务接口">5 Call Profile</button>
+                <button id="centralClearBtn" class="btn secondary" title="步骤 6：清理中心化会话与 token">6 Clear Central</button>
+              </div>
+              <div class="inline-note">
+                `POST /auth/central/session` 需要 `Authorization: Bearer &lt;JWT&gt;`，此页默认复用本页 SIWE 登录拿到的 JWT。
+              </div>
+            </div>
+
+            <div class="card">
+              <h3>中心化 UCAN 状态</h3>
+              <div class="status">
+                <div class="status-row"><div class="k">JWT Token</div><div id="centralJwtValue" class="v copyable" title="点击复制完整 JWT">-</div></div>
+                <div class="status-row"><div class="k">Session Token</div><div id="centralSessionTokenValue" class="v copyable" title="点击复制 sessionToken">-</div></div>
+                <div class="status-row"><div class="k">UCAN Token</div><div id="centralUcanValue" class="v copyable" title="点击复制 UCAN">-</div></div>
+                <div class="status-row"><div class="k">Last Profile</div><div id="centralProfileValue" class="v">-</div></div>
+              </div>
+            </div>
+          </section>
         </div>
       </section>
 
@@ -601,7 +666,7 @@
         const backendConfigs = [
           { id: 'go', name: 'Go Backend', port: 3201 },
           { id: 'java', name: 'Java Backend', port: 3202 },
-          { id: 'node', name: 'Node Backend', port: 3203 },
+          { id: 'nodejs', name: 'Node.js Backend', port: 3203 },
           { id: 'python', name: 'Python Backend', port: 3204 },
         ].map(item => ({
           ...item,
@@ -609,6 +674,18 @@
           profileUrl: `http://127.0.0.1:${item.port}/api/v1/public/profile`,
           audience: `did:web:127.0.0.1:${item.port}`,
         }));
+
+        const centralPresetConfigs = [
+          ...backendConfigs,
+          {
+            id: 'node-service',
+            name: 'Node Service (Issuer)',
+            port: 8100,
+            baseUrl: 'http://127.0.0.1:8100/api/v1/public/auth',
+            profileUrl: 'http://127.0.0.1:8100/api/v1/public/profile',
+            audience: 'did:web:127.0.0.1:8100',
+          },
+        ];
 
         const quickSnippet = `import {
   getProvider,
@@ -659,6 +736,9 @@ const stopChain = onChainChanged(provider, chainId => {
           ucanRootContextKey: null,
           ucanDelegationToken: null,
           ucanToken: null,
+          centralSessionToken: null,
+          centralUcanToken: null,
+          centralLastProfile: null,
         };
 
         const el = {
@@ -711,6 +791,25 @@ const stopChain = onChainChanged(provider, chainId => {
           ucanDelegateDidValue: document.getElementById('ucanDelegateDidValue'),
           ucanDelegationValue: document.getElementById('ucanDelegationValue'),
           ucanTokenValue: document.getElementById('ucanTokenValue'),
+
+          centralBackendSelect: document.getElementById('centralBackendSelect'),
+          centralSiweBaseUrl: document.getElementById('centralSiweBaseUrl'),
+          centralBaseUrl: document.getElementById('centralBaseUrl'),
+          centralProfileUrl: document.getElementById('centralProfileUrl'),
+          centralSubjectInput: document.getElementById('centralSubjectInput'),
+          centralAudienceInput: document.getElementById('centralAudienceInput'),
+          centralWithInput: document.getElementById('centralWithInput'),
+          centralCanInput: document.getElementById('centralCanInput'),
+          centralLoginBtn: document.getElementById('centralLoginBtn'),
+          centralIssuerBtn: document.getElementById('centralIssuerBtn'),
+          centralSessionBtn: document.getElementById('centralSessionBtn'),
+          centralIssueBtn: document.getElementById('centralIssueBtn'),
+          centralProfileBtn: document.getElementById('centralProfileBtn'),
+          centralClearBtn: document.getElementById('centralClearBtn'),
+          centralJwtValue: document.getElementById('centralJwtValue'),
+          centralSessionTokenValue: document.getElementById('centralSessionTokenValue'),
+          centralUcanValue: document.getElementById('centralUcanValue'),
+          centralProfileValue: document.getElementById('centralProfileValue'),
         };
 
         function ts() {
@@ -859,6 +958,10 @@ const stopChain = onChainChanged(provider, chainId => {
           return backendConfigs.find(item => item.id === id) || backendConfigs[0];
         }
 
+        function getCentralPresetById(id) {
+          return centralPresetConfigs.find(item => item.id === id) || centralPresetConfigs[0];
+        }
+
         function syncSiweInputs(config) {
           if (!config) return;
           el.siweBaseUrl.value = config.baseUrl;
@@ -871,6 +974,14 @@ const stopChain = onChainChanged(provider, chainId => {
           el.ucanProfileUrlInput.value = config.profileUrl;
         }
 
+        function syncCentralInputs(config) {
+          if (!config) return;
+          el.centralSiweBaseUrl.value = config.baseUrl;
+          el.centralBaseUrl.value = `${config.baseUrl}/central`;
+          el.centralProfileUrl.value = config.profileUrl;
+          el.centralAudienceInput.value = config.audience;
+        }
+
         function syncUcanScopeFromAppId(force = false) {
           const appId = String(el.ucanAppIdInput.value || '').trim();
           if (!appId) return;
@@ -880,6 +991,30 @@ const stopChain = onChainChanged(provider, chainId => {
           if (force || !current || current.startsWith('app:')) {
             el.ucanResourceInput.value = nextWith;
           }
+        }
+
+        function syncCentralScopeFromAppId(force = false) {
+          const appId = String(el.ucanAppIdInput.value || '').trim();
+          if (!appId) return;
+          const nextWith = `app:all:${appId}`;
+          const current = String(el.centralWithInput.value || '').trim();
+          if (force || !current || current.startsWith('app:')) {
+            el.centralWithInput.value = nextWith;
+          }
+        }
+
+        function ensureCentralCapability() {
+          const withValue = String(el.centralWithInput.value || '').trim();
+          const canValue = normalizeActionExpression(el.centralCanInput.value);
+          if (!withValue || !canValue) {
+            throw new Error('Central capability requires both with and can');
+          }
+          return {
+            with: withValue,
+            can: canValue,
+            resource: withValue,
+            action: canValue,
+          };
         }
 
         function renderBackends() {
@@ -943,6 +1078,25 @@ const stopChain = onChainChanged(provider, chainId => {
             ? shortToken(state.ucanDelegationToken, 16, 10)
             : '-';
           el.ucanTokenValue.textContent = state.ucanToken ? shortToken(state.ucanToken, 16, 10) : '-';
+
+          el.centralJwtValue.textContent = state.siweToken ? shortToken(state.siweToken, 16, 10) : '-';
+          el.centralSessionTokenValue.textContent = state.centralSessionToken
+            ? shortToken(state.centralSessionToken, 16, 10)
+            : '-';
+          el.centralUcanValue.textContent = state.centralUcanToken
+            ? shortToken(state.centralUcanToken, 16, 10)
+            : '-';
+          if (state.centralLastProfile === null) {
+            el.centralProfileValue.textContent = '-';
+          } else {
+            let text = '';
+            try {
+              text = JSON.stringify(state.centralLastProfile);
+            } catch {
+              text = String(state.centralLastProfile);
+            }
+            el.centralProfileValue.textContent = text;
+          }
         }
 
         function stopWatchers() {
@@ -1166,11 +1320,22 @@ const stopChain = onChainChanged(provider, chainId => {
             o2.textContent = `${config.name} (${config.port})`;
             el.ucanBackendSelect.appendChild(o2);
           });
-          const defaultBackend = getBackendById('node');
+
+          centralPresetConfigs.forEach(config => {
+            const o3 = document.createElement('option');
+            o3.value = config.id;
+            o3.textContent = `${config.name} (${config.port})`;
+            el.centralBackendSelect.appendChild(o3);
+          });
+
+          const defaultBackend = getBackendById('nodejs');
+          const defaultCentralPreset = getCentralPresetById('node-service');
           el.siweBackendSelect.value = defaultBackend.id;
           el.ucanBackendSelect.value = defaultBackend.id;
+          el.centralBackendSelect.value = defaultCentralPreset.id;
           syncSiweInputs(defaultBackend);
           syncUcanInputs(defaultBackend);
+          syncCentralInputs(defaultCentralPreset);
         }
 
         async function loadSdk() {
@@ -1220,6 +1385,18 @@ const stopChain = onChainChanged(provider, chainId => {
             await copyText(state.ucanDelegationToken, 'UCAN delegation copied');
           });
 
+          el.centralJwtValue.addEventListener('click', async () => {
+            await copyText(state.siweToken, 'Central JWT copied');
+          });
+
+          el.centralSessionTokenValue.addEventListener('click', async () => {
+            await copyText(state.centralSessionToken, 'Central session token copied');
+          });
+
+          el.centralUcanValue.addEventListener('click', async () => {
+            await copyText(state.centralUcanToken, 'Central UCAN copied');
+          });
+
           el.siweBackendSelect.addEventListener('change', () => {
             const config = getBackendById(el.siweBackendSelect.value);
             syncSiweInputs(config);
@@ -1233,8 +1410,16 @@ const stopChain = onChainChanged(provider, chainId => {
             appendLog('UCAN backend selected', config);
           });
 
+          el.centralBackendSelect.addEventListener('change', () => {
+            const config = getCentralPresetById(el.centralBackendSelect.value);
+            syncCentralInputs(config);
+            syncCentralScopeFromAppId(true);
+            appendLog('Central backend selected', config);
+          });
+
           el.ucanAppIdInput.addEventListener('change', () => {
             syncUcanScopeFromAppId(true);
+            syncCentralScopeFromAppId(true);
             clearDerivedUcanState('appId changed');
             appendLog('UCAN appId updated', {
               appId: el.ucanAppIdInput.value,
@@ -1248,6 +1433,20 @@ const stopChain = onChainChanged(provider, chainId => {
 
           el.ucanActionInput.addEventListener('change', () => {
             clearDerivedUcanState('capability.can changed');
+          });
+
+          el.centralWithInput.addEventListener('change', () => {
+            state.centralUcanToken = null;
+            state.centralLastProfile = null;
+            renderStatus();
+            appendLog('Central capability.with changed', { with: el.centralWithInput.value });
+          });
+
+          el.centralCanInput.addEventListener('change', () => {
+            state.centralUcanToken = null;
+            state.centralLastProfile = null;
+            renderStatus();
+            appendLog('Central capability.can changed', { can: el.centralCanInput.value });
           });
 
           el.detectBtn.addEventListener('click', () =>
@@ -1288,12 +1487,18 @@ const stopChain = onChainChanged(provider, chainId => {
               state.ucanSession = null;
               state.ucanDelegateSession = null;
               state.ucanDelegationToken = null;
+              state.centralSessionToken = null;
+              state.centralUcanToken = null;
+              state.centralLastProfile = null;
               if (sdk.clearUcanSession) {
                 await sdk.clearUcanSession(sessionId);
                 await sdk.clearUcanSession(delegateSessionId);
               }
               if (sdk.clearAccessToken) {
                 sdk.clearAccessToken({ storeToken: false });
+              }
+              if (sdk.clearCentralSessionToken) {
+                sdk.clearCentralSessionToken({ storeSessionToken: false });
               }
               renderStatus();
               appendLog('Local SDK state reset');
@@ -1356,8 +1561,134 @@ const stopChain = onChainChanged(provider, chainId => {
               });
               state.siweToken = null;
               state.siweLastProfile = null;
+              state.centralSessionToken = null;
+              state.centralUcanToken = null;
+              state.centralLastProfile = null;
               renderStatus();
               appendLog('Logout success', result);
+            })
+          );
+
+          el.centralLoginBtn.addEventListener('click', () =>
+            handleWithLog('Central SIWE login', async () => {
+              const sdk = ensureSdk();
+              const provider = await ensureConnectedWallet();
+              const result = await sdk.loginWithChallenge({
+                provider,
+                address: state.account || undefined,
+                baseUrl: el.centralSiweBaseUrl.value.trim(),
+                storeToken: false,
+              });
+              state.siweToken = result.token || null;
+              state.centralSessionToken = null;
+              state.centralUcanToken = null;
+              state.centralLastProfile = null;
+              if (result.address) {
+                el.centralSubjectInput.value = result.address;
+              }
+              renderStatus();
+              appendLog('Central SIWE login success', result);
+            })
+          );
+
+          el.centralIssuerBtn.addEventListener('click', () =>
+            handleWithLog('Central issuer info', async () => {
+              const sdk = ensureSdk();
+              const centralBaseUrl = el.centralBaseUrl.value.trim();
+              let result;
+              try {
+                result = await sdk.getCentralIssuerInfo({
+                  baseUrl: centralBaseUrl,
+                  accessToken: state.siweToken || undefined,
+                  storeSessionToken: false,
+                });
+              } catch (error) {
+                const reason = error instanceof Error ? error.message : String(error);
+                throw new Error(`${reason} (centralBaseUrl=${centralBaseUrl})`);
+              }
+              if (result.defaultAudience) {
+                el.centralAudienceInput.value = result.defaultAudience;
+              }
+              appendLog('Central issuer info', result);
+            })
+          );
+
+          el.centralSessionBtn.addEventListener('click', () =>
+            handleWithLog('Central create session', async () => {
+              if (!state.siweToken) {
+                throw new Error('Missing SIWE JWT, run "1 SIWE Login" first');
+              }
+              const sdk = ensureSdk();
+              const result = await sdk.createCentralSession({
+                baseUrl: el.centralBaseUrl.value.trim(),
+                accessToken: state.siweToken,
+                subject: String(el.centralSubjectInput.value || '').trim(),
+                storeSessionToken: false,
+              });
+              state.centralSessionToken = result.sessionToken || null;
+              state.centralUcanToken = null;
+              state.centralLastProfile = null;
+              renderStatus();
+              appendLog('Central session created', result);
+            })
+          );
+
+          el.centralIssueBtn.addEventListener('click', () =>
+            handleWithLog('Central issue UCAN', async () => {
+              if (!state.centralSessionToken) {
+                throw new Error('Missing central session token, run "3 Create Session" first');
+              }
+              const sdk = ensureSdk();
+              const capability = ensureCentralCapability();
+              const result = await sdk.issueCentralUcan({
+                baseUrl: el.centralBaseUrl.value.trim(),
+                sessionToken: state.centralSessionToken,
+                audience: String(el.centralAudienceInput.value || '').trim(),
+                capabilities: [capability],
+                storeSessionToken: false,
+              });
+              state.centralUcanToken = result.ucan || null;
+              state.centralLastProfile = null;
+              renderStatus();
+              appendLog('Central UCAN issued', result);
+            })
+          );
+
+          el.centralProfileBtn.addEventListener('click', () =>
+            handleWithLog('Central call profile', async () => {
+              if (!state.centralUcanToken) {
+                throw new Error('Missing central UCAN, run "4 Issue UCAN" first');
+              }
+              const sdk = ensureSdk();
+              const response = await sdk.authCentralUcanFetch(
+                el.centralProfileUrl.value.trim(),
+                { method: 'GET' },
+                {
+                  ucan: state.centralUcanToken,
+                  storeSessionToken: false,
+                }
+              );
+              const payload = await safeReadResponse(response);
+              state.centralLastProfile = payload;
+              renderStatus();
+              appendLog('Central profile response', {
+                status: response.status,
+                payload,
+              });
+            })
+          );
+
+          el.centralClearBtn.addEventListener('click', () =>
+            handleWithLog('Clear central state', async () => {
+              const sdk = ensureSdk();
+              if (sdk.clearCentralSessionToken) {
+                sdk.clearCentralSessionToken({ storeSessionToken: false });
+              }
+              state.centralSessionToken = null;
+              state.centralUcanToken = null;
+              state.centralLastProfile = null;
+              renderStatus();
+              appendLog('Central state cleared');
             })
           );
 
@@ -1459,6 +1790,7 @@ const stopChain = onChainChanged(provider, chainId => {
           el.ucanAppIdInput.value = appId;
           syncUcanScopeFromAppId(true);
           fillBackendSelectors();
+          syncCentralScopeFromAppId(true);
           renderBackends();
           bindEvents();
           renderStatus();

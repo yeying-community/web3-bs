@@ -1,6 +1,6 @@
 # 后端示例（多语言）启动说明
 
-本目录下包含 Node / Go / Python / Java 四个版本的后端示例，接口行为一致：
+本目录下包含 Node.js / Go / Python / Java 四个版本的后端示例，接口行为一致：
 - `/api/v1/public/auth/challenge`
 - `/api/v1/public/auth/verify`
 - `/api/v1/public/auth/refresh`
@@ -32,7 +32,7 @@
 - 动作：`can=invoke` / `can=read` / `can=write`
 - 兼容：后端仍接受历史字段 `resource/action`
 
-## Node 版本
+## Node.js 版本
 
 路径：`examples/backend/node/server.js`
 
@@ -43,8 +43,8 @@ node examples/backend/node/server.js
 
 脚本启动：
 ```bash
-./scripts/backend.sh start node
-./scripts/backend.sh start node --setup
+./scripts/backend.sh start nodejs
+./scripts/backend.sh start nodejs --setup
 ```
 
 多后端同时启动（默认端口）：
@@ -116,7 +116,7 @@ mvn -q exec:java -Dexec.mainClass="com.yeying.demo.AuthServer"
 
 所有语言版本均支持以下环境变量（未设置则使用默认值）：
 
-- `PORT`：服务端口（默认：Go `3201` / Java `3202` / Node `3203` / Python `3204`）
+- `PORT`：服务端口（默认：Go `3201` / Java `3202` / Node.js `3203` / Python `3204`）
 - `JWT_SECRET`：JWT 签名密钥（默认 `replace-this-in-production`）
 - `ACCESS_TTL_MS`：Access Token 过期时间（毫秒，默认 `900000`）
 - `REFRESH_TTL_MS`：Refresh Token 过期时间（毫秒，默认 `604800000`）
@@ -128,7 +128,7 @@ mvn -q exec:java -Dexec.mainClass="com.yeying.demo.AuthServer"
 UCAN 相关环境变量（可选）：
 - `UCAN_AUD`：服务 DID（默认 `did:web:127.0.0.1:<PORT>`）
 - `UCAN_RESOURCE`：资源
-  - 默认：Go `app:go:*` / Java `app:java:*` / Node `app:node:*` / Python `app:python:*`
+  - 默认：Go `app:go:*` / Java `app:java:*` / Node.js `app:nodejs:*` / Python `app:python:*`
 - `UCAN_ACTION`：动作（默认 `invoke`）
   - 推荐：`UCAN_RESOURCE=app:<service>:<appId>`，`UCAN_ACTION=invoke/read/write`（按服务最小化配置）
   - WebDAV 场景建议：`UCAN_RESOURCE=app:all:<appId>`，`UCAN_ACTION=read,write`，其中 `appId` 使用前端域名或 IP:端口。
