@@ -306,7 +306,9 @@ Root UCAN 基于 SIWE 签名，用于多后端统一鉴权。UCAN 以 `Authoriza
 
 示例：
 ```ts
-const appId = window.location.host || '127.0.0.1:8001';
+import { deriveAppIdFromLocation } from '@yeying-community/web3-bs';
+
+const appId = deriveAppIdFromLocation(window.location) || 'localhost-8001';
 const scope = `app:all:${appId}`;
 
 const session = await createUcanSession({ provider });
@@ -335,6 +337,8 @@ const res = await authUcanFetch('http://127.0.0.1:3203/api/v1/public/profile', {
 console.log(await res.json());
 ```
 
+说明：本地调试建议统一用 `deriveAppIdFromLocation(window.location)` 生成 `appId`，避免 `localhost` 与 `127.0.0.1` 同端口产生两套目录。
+
 兼容说明：
 - SDK 与后端都优先推荐 `with/can`。
 - 历史字段 `resource/action` 仍兼容，但新项目建议统一迁移到 `with/can`。
@@ -348,7 +352,7 @@ console.log(await res.json());
 
 ## 7. 后端交互 API（推荐标准）
 
-OpenAPI 规范：`docs/openapi.yaml`
+OpenAPI 规范：`docs/开放接口规范.yaml`
 
 ### 7.1 响应封装（严格）
 
@@ -521,7 +525,9 @@ OpenAPI 规范：`docs/openapi.yaml`
 ### 9.2 本地测试示例参数
 
 ```ts
-const appId = window.location.host || '127.0.0.1:8001';
+import { deriveAppIdFromLocation } from '@yeying-community/web3-bs';
+
+const appId = deriveAppIdFromLocation(window.location) || 'localhost-8001';
 
 const webdav = await initWebDavStorage({
   baseUrl: 'http://127.0.0.1:6065',
@@ -537,7 +543,12 @@ const webdav = await initWebDavStorage({
 
 示例：
 ```ts
-import { createWebDavClient, initWebDavStorage, loginWithChallenge } from '@yeying-community/web3-bs';
+import {
+  createWebDavClient,
+  initWebDavStorage,
+  loginWithChallenge,
+  deriveAppIdFromLocation,
+} from '@yeying-community/web3-bs';
 
 const login = await loginWithChallenge({
   provider,
@@ -556,7 +567,7 @@ await client.upload('/docs/hello.txt', 'Hello WebDAV');
 const content = await client.downloadText('/docs/hello.txt');
 
 // UCAN 登录 + 自动创建应用目录（推荐）
-const appId = window.location.host || '127.0.0.1:8001';
+const appId = deriveAppIdFromLocation(window.location) || 'localhost-8001';
 
 const storage = await initWebDavStorage({
   baseUrl: 'http://127.0.0.1:6065',
@@ -578,16 +589,16 @@ await storage.client.upload(`${storage.appDir}/hello.txt`, 'Hello WebDAV');
 - `copy(path, destination, overwrite?)`
 - `getQuota()` / `listRecycle()` / `recoverRecycle(hash)` / `deleteRecycle(hash)` / `clearRecycle()`
 
-提示：`capabilities` 需与 WebDAV 后端 UCAN 策略一致，推荐 `with=app:all:<appId>`（资源格式 `app:<scope>:<appId>`）；`appId` 默认映射为 `/apps/<appId>`（建议使用前端域名或 IP:端口）。如服务端修改了 `app_scope.path_prefix`，请传 `appDir` 对齐。
+提示：`capabilities` 需与 WebDAV 后端 UCAN 策略一致，推荐 `with=app:all:<appId>`（资源格式 `app:<scope>:<appId>`）；`appId` 默认映射为 `/apps/<appId>`。本地调试建议使用 `deriveAppIdFromLocation(window.location)`，会把 `127.0.0.1` / `::1` 归一化到 `localhost`，避免同端口出现两套应用目录。如服务端修改了 `app_scope.path_prefix`，请传 `appDir` 对齐。
 
 ## 10. Dapp 快速接入（推荐）
 
 一次完成 SIWE 登录 + UCAN WebDAV 初始化 + 创建应用目录：
 
 ```ts
-import { initDappSession } from '@yeying-community/web3-bs';
+import { initDappSession, deriveAppIdFromLocation } from '@yeying-community/web3-bs';
 
-const appId = window.location.host || '127.0.0.1:8001';
+const appId = deriveAppIdFromLocation(window.location) || 'localhost-8001';
 
 const session = await initDappSession({
   appAuth: {

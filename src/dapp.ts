@@ -24,6 +24,13 @@ type CachedUcanToken = {
 const tokenCache = new Map<string, CachedUcanToken>();
 const TOKEN_SKEW_MS = 5000;
 const DEFAULT_APP_ACTION = 'write';
+const LOOPBACK_HOST_ALIASES = new Set([
+  'localhost',
+  '127.0.0.1',
+  '::1',
+  '0:0:0:0:0:0:0:1',
+  '0.0.0.0',
+]);
 
 export type InitWebDavStorageOptions = {
   baseUrl: string;
@@ -72,6 +79,12 @@ export type InitDappSessionResult = {
   webdavAppDir?: string;
 };
 
+export type AppIdLocationLike = {
+  host?: string | null;
+  hostname?: string | null;
+  port?: string | number | null;
+};
+
 function normalizeAppDir(path: string): string {
   const trimmed = path.trim();
   if (!trimmed) return '/';
@@ -82,6 +95,79 @@ function normalizeAppDir(path: string): string {
 
 function sanitizeAppId(appId: string): string {
   return appId.trim().replace(/[^a-zA-Z0-9._-]/g, '-');
+}
+
+function parseHostPort(rawHost: string): { hostname: string; port: string } {
+  const host = rawHost.trim();
+  if (!host) return { hostname: '', port: '' };
+
+  const bracketMatch = host.match(/^\[([^\]]+)\](?::([0-9]+))?$/);
+  if (bracketMatch) {
+    return {
+      hostname: bracketMatch[1] || '',
+      port: bracketMatch[2] || '',
+    };
+  }
+
+  const firstColon = host.indexOf(':');
+  const lastColon = host.lastIndexOf(':');
+  if (firstColon > -1 && firstColon === lastColon) {
+    const hostname = host.slice(0, firstColon).trim();
+    const port = host.slice(firstColon + 1).trim();
+    if (/^[0-9]+$/.test(port)) {
+      return { hostname, port };
+    }
+  }
+
+  return { hostname: host, port: '' };
+}
+
+export function normalizeAppHostnameForAppId(hostname: string): string {
+  const normalized = (hostname || '').trim().toLowerCase();
+  if (!normalized) return '';
+  const bare = normalized.replace(/^\[(.*)\]$/, '$1');
+  if (LOOPBACK_HOST_ALIASES.has(normalized) || LOOPBACK_HOST_ALIASES.has(bare)) {
+    return 'localhost';
+  }
+  return bare;
+}
+
+function buildSanitizedAppId(hostname: string, port?: string | number | null): string {
+  const normalizedHostname = normalizeAppHostnameForAppId(hostname);
+  if (!normalizedHostname) return '';
+  const normalizedPort =
+    port === undefined || port === null ? '' : String(port).trim();
+  const host = normalizedPort
+    ? `${normalizedHostname}:${normalizedPort}`
+    : normalizedHostname;
+  return sanitizeAppId(host);
+}
+
+export function deriveAppIdFromHost(host: string): string {
+  const parsed = parseHostPort(host || '');
+  return buildSanitizedAppId(parsed.hostname, parsed.port);
+}
+
+export function deriveAppIdFromLocation(
+  locationLike?: AppIdLocationLike
+): string {
+  const source =
+    locationLike ||
+    (typeof window !== 'undefined' ? (window.location as AppIdLocationLike) : undefined);
+  if (!source) return '';
+
+  const hostname = typeof source.hostname === 'string' ? source.hostname : '';
+  const port = source.port;
+  if (hostname) {
+    const appId = buildSanitizedAppId(hostname, port);
+    if (appId) return appId;
+  }
+
+  if (typeof source.host === 'string') {
+    return deriveAppIdFromHost(source.host);
+  }
+
+  return '';
 }
 
 function normalizeAction(action?: string): string | null {

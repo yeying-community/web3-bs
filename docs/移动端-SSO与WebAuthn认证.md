@@ -1,4 +1,4 @@
-# 方案 C：SSO / WebAuthn（Passkey）→ JWT（放弃 UCAN）
+# SSO / WebAuthn 认证（JWT）
 
 ## 1. 适用场景
 
@@ -29,12 +29,17 @@
 ## 4. 前端使用本库（JWT 模式）
 
 ```ts
-import { setAccessToken, authFetch, createWebDavClient } from '@yeying-community/web3-bs';
+import {
+  setAccessToken,
+  authFetch,
+  createWebDavClient,
+  deriveAppIdFromLocation,
+} from '@yeying-community/web3-bs';
 
 setAccessToken(token, { storeToken: true });
 const res = await authFetch('https://api.example.com/api/v1/public/profile');
 
-const appId = window.location.host || '127.0.0.1:8001';
+const appId = deriveAppIdFromLocation(window.location) || 'localhost-8001';
 const webdav = createWebDavClient({
   baseUrl: 'https://webdav.example.com',
   prefix: '/dav',

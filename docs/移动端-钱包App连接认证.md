@@ -1,4 +1,4 @@
-# 方案 A：WalletConnect / Deep Link 到钱包 App（移动端保留 UCAN）
+# 钱包 App 连接认证（WalletConnect / Deep Link）
 
 ## 1. 适用场景
 
@@ -14,11 +14,11 @@
 - 当前 UCAN 会话依赖 **YeYing 专有 RPC**（`yeying_ucan_session` / `yeying_ucan_sign`）。
 - 绝大多数钱包只提供通用 `personal_sign`，不支持 UCAN Session API。
 
-因此此方案有两种实现路径：
-- **A1：钱包 App 支持 YeYing UCAN RPC**（最理想）
-- **A2：仅支持 SIWE/JWT（无法创建 UCAN Session）** → 退化为 JWT 登录
+因此有两条实际落地路径：
+- **钱包支持 YeYing UCAN RPC**（最理想）
+- **钱包仅支持通用签名**（只能走 SIWE/JWT）
 
-## 3. 详细落地流程（A1：支持 YeYing UCAN RPC）
+## 3. 详细落地流程（支持 UCAN RPC）
 
 1) 集成 WalletConnect（或钱包自带 deep link SDK）
 2) 获取 Provider（EIP-1193）
@@ -31,9 +31,9 @@
 
 示例（UCAN 模式）：
 ```ts
-import { initWebDavStorage } from '@yeying-community/web3-bs';
+import { initWebDavStorage, deriveAppIdFromLocation } from '@yeying-community/web3-bs';
 
-const appId = window.location.host || '127.0.0.1:8001';
+const appId = deriveAppIdFromLocation(window.location) || 'localhost-8001';
 const storage = await initWebDavStorage({
   baseUrl: 'https://webdav.example.com',
   prefix: '/dav',
@@ -43,7 +43,7 @@ const storage = await initWebDavStorage({
 });
 ```
 
-## 4. 详细落地流程（A2：仅支持 SIWE/JWT）
+## 4. 详细落地流程（仅支持 SIWE/JWT）
 
 1) WalletConnect 建立连接
 2) 仅使用 `personal_sign` 完成 SIWE

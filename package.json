@@ -1,6 +1,6 @@
 {
   "name": "@yeying-community/web3-bs",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "author": "yeying.community@gmail.com",
   "description": "Browser-side DApp access SDK for EIP-1193, SIWE, UCAN, central UCAN and WebDAV",
   "module": "dist/web3-bs.esm.js",
