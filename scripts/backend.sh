@@ -113,9 +113,9 @@ require_cmd() {
   return 0
 }
 
-start_node() {
+start_nodejs() {
   require_cmd node node || return 1
-  start_service node "exec node \"$ROOT_DIR/examples/backend/node/server.js\""
+  start_service nodejs "exec node \"$ROOT_DIR/examples/backend/node/server.js\""
 }
 
 start_go() {
@@ -174,11 +174,11 @@ setup_java() {
 
 usage() {
   cat <<USAGE
-Usage: ./scripts/backend.sh <start|stop|restart|status> <node|go|python|java|all> [--setup] [--no-stop]
+Usage: ./scripts/backend.sh <start|stop|restart|status> <nodejs|go|python|java|all> [--setup] [--no-stop]
 
 Examples:
-  ./scripts/backend.sh start node
-  ./scripts/backend.sh start node --setup
+  ./scripts/backend.sh start nodejs
+  ./scripts/backend.sh start nodejs --setup
   ./scripts/backend.sh stop all
   ./scripts/backend.sh restart python
   ./scripts/backend.sh status all
@@ -192,6 +192,13 @@ Notes:
 USAGE
 }
 
+canonicalize_target() {
+  case "$1" in
+    nodejs|go|python|java|all) echo "$1" ;;
+    *) return 1 ;;
+  esac
+}
+
 main() {
   if [[ $# -lt 2 ]]; then
     usage
@@ -199,7 +206,13 @@ main() {
   fi
 
   local action="$1"
-  local target="$2"
+  local raw_target="$2"
+  local target
+  if ! target="$(canonicalize_target "$raw_target")"; then
+    echo "Unknown target: $raw_target"
+    usage
+    exit 1
+  fi
   shift 2
 
   local do_setup=false
@@ -243,7 +256,7 @@ main() {
 
   run_start() {
     case "$1" in
-      node) start_node ;;
+      nodejs) start_nodejs ;;
       go) start_go ;;
       python) start_python ;;
       java) start_java ;;
@@ -252,7 +265,7 @@ main() {
 
   run_stop() {
     case "$1" in
-      node) stop_service node ;;
+      nodejs) stop_service nodejs ;;
       go) stop_service go ;;
       python) stop_service python ;;
       java) stop_service java ;;
@@ -261,7 +274,7 @@ main() {
 
   run_status() {
     case "$1" in
-      node) status_service node ;;
+      nodejs) status_service nodejs ;;
       go) status_service go ;;
       python) status_service python ;;
       java) status_service java ;;
@@ -279,14 +292,14 @@ main() {
   run_setup() {
     maybe_setup_common
     case "$1" in
-      node) ;;
+      nodejs) ;;
       go) setup_go ;;
       python) setup_python ;;
       java) setup_java ;;
     esac
   }
 
-  local all_targets=(node go python java)
+  local all_targets=(nodejs go python java)
   local targets
   if [[ "$target" == "all" ]]; then
     targets=("${all_targets[@]}")

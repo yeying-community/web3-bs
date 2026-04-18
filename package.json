@@ -1,6 +1,6 @@
 {
   "name": "@yeying-community/web3-bs",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "author": "yeying.community@gmail.com",
   "description": "Browser-side DApp access SDK for EIP-1193, SIWE, UCAN, central UCAN and WebDAV",
   "module": "dist/web3-bs.esm.js",
@@ -13,7 +13,8 @@
     "dev": "rollup -c -w",
     "build": "rm -rf dist && rollup -c",
     "check:capabilities": "npm run build && node scripts/ucan-capability-check.mjs",
-    "test": "echo \"No tests\"",
+    "test": "npm run test:central",
+    "test:central": "npm run build && node --test tests/central-ucan.test.mjs",
     "format": "prettier --write \"src/**/*.ts\"",
     "docs": "typedoc --out docs src"
   },

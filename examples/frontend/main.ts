@@ -9,6 +9,7 @@ import {
   createInvocationUcan,
   authUcanFetch,
   initDappSession,
+  deriveAppIdFromLocation,
 } from '@yeying-community/web3-bs';
 
 async function connectAndLogin() {
@@ -23,8 +24,7 @@ async function connectAndLogin() {
     throw new Error('No account returned');
   }
 
-  const host = typeof window !== 'undefined' ? window.location.host || '127.0.0.1:8001' : '127.0.0.1:8001';
-  const appId = host.replace(/[^a-zA-Z0-9._-]/g, '-');
+  const appId = deriveAppIdFromLocation(window.location) || 'localhost-8001';
   const appScope = `app:all:${appId}`;
   const routerCap = { with: appScope, can: 'invoke' };
   const webdavCap = { with: appScope, can: 'write' };

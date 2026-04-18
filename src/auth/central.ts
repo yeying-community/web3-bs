@@ -1,4 +1,5 @@
 import type { AuthBaseOptions } from './types';
+import { getAccessToken } from './siwe';
 import {
   normalizeUcanCapabilities,
   normalizeUcanCapability,
@@ -10,6 +11,7 @@ export type CentralAuthBaseOptions = AuthBaseOptions & {
   issuerPath?: string;
   sessionPath?: string;
   issuePath?: string;
+  accessToken?: string | null;
   storeSessionToken?: boolean;
   sessionTokenStorageKey?: string;
 };
@@ -113,6 +115,17 @@ function resolveSessionTokenKey(options?: CentralAuthBaseOptions): string {
   return options?.sessionTokenStorageKey || DEFAULT_SESSION_TOKEN_KEY;
 }
 
+function resolveAccessToken(options?: CentralAuthBaseOptions): string | null {
+  if (typeof options?.accessToken === 'string') {
+    const token = options.accessToken.trim();
+    return token || null;
+  }
+  if (options?.accessToken === null) {
+    return null;
+  }
+  return getAccessToken(options);
+}
+
 function shouldStoreSessionToken(options?: CentralAuthBaseOptions): boolean {
   return options?.storeSessionToken !== false;
 }
@@ -163,6 +176,10 @@ function parseCapabilitiesField(obj: Record<string, unknown>, keys: string[]): U
     return caps;
   }
   return undefined;
+}
+
+function parseIssuerDidField(obj: Record<string, unknown>): string | undefined {
+  return parseStringField(obj, ['issuerDid', 'issuer', 'did']);
 }
 
 function readStoredSessionToken(options?: CentralAuthBaseOptions): string | null {
@@ -220,11 +237,16 @@ export async function getCentralIssuerInfo(
   const fetcher = resolveFetcher(options);
   const credentials = resolveCredentials(options);
   const url = joinUrl(resolveBaseUrl(options), options.issuerPath || DEFAULT_ISSUER_PATH);
+  const token = resolveAccessToken(options);
+  const headers = new Headers({
+    accept: 'application/json',
+  });
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
   const response = await fetcher(url, {
     method: 'GET',
-    headers: {
-      accept: 'application/json',
-    },
+    headers,
     credentials,
   });
   const payload = await parseJsonBody(response);
@@ -235,7 +257,7 @@ export async function getCentralIssuerInfo(
   const data = parseEnvelopeData(payload);
   return {
     enabled: typeof data.enabled === 'boolean' ? data.enabled : undefined,
-    issuerDid: parseStringField(data, ['issuerDid']),
+    issuerDid: parseIssuerDidField(data),
     defaultAudience: parseStringField(data, ['defaultAudience']),
     defaultCapabilities: parseCapabilitiesField(data, ['defaultCapabilities']),
     response: payload,
@@ -251,13 +273,18 @@ export async function createCentralSession(
   }
   const fetcher = resolveFetcher(options);
   const credentials = resolveCredentials(options);
+  const accessToken = resolveAccessToken(options);
   const url = joinUrl(resolveBaseUrl(options), options.sessionPath || DEFAULT_SESSION_PATH);
+  const headers = new Headers({
+    'Content-Type': 'application/json',
+    accept: 'application/json',
+  });
+  if (accessToken) {
+    headers.set('Authorization', `Bearer ${accessToken}`);
+  }
   const response = await fetcher(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      accept: 'application/json',
-    },
+    headers,
     credentials,
     body: JSON.stringify({
       subject,
@@ -280,7 +307,7 @@ export async function createCentralSession(
     subject: parseStringField(data, ['subject']) || subject,
     sessionToken,
     expiresAt: parseNumberField(data, ['expiresAt']),
-    issuerDid: parseStringField(data, ['issuerDid']),
+    issuerDid: parseIssuerDidField(data),
     response: payload,
   };
 }
@@ -327,13 +354,13 @@ export async function issueCentralUcan(
 
   return {
     ucan,
-    issuerDid: parseStringField(data, ['issuerDid']),
+    issuerDid: parseIssuerDidField(data),
     subject: parseStringField(data, ['subject']),
     audience: parseStringField(data, ['audience']),
     capabilities: parseCapabilitiesField(data, ['capabilities']),
-    exp: parseNumberField(data, ['exp']),
-    nbf: parseNumberField(data, ['nbf']),
-    iat: parseNumberField(data, ['iat']),
+    exp: parseNumberField(data, ['exp', 'expiresAt']),
+    nbf: parseNumberField(data, ['nbf', 'notBefore']),
+    iat: parseNumberField(data, ['iat', 'issuedAt']),
     response: payload,
   };
 }
