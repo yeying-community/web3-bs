@@ -1,31 +1,28 @@
 openapi: 3.0.3
 info:
-  title: YeYing SIWE Auth API
-  version: 1.0.1
+  title: YeYing Node Auth & Central UCAN Issuer API
+  version: 1.1.0
   description: |
-    Backend API contract for the YeYing injected wallet SDK.
+    OpenAPI contract aligned with the Node v1 implementation.
 
     Notes:
-    - All responses are wrapped in a unified envelope: { code, message, data, timestamp }.
-    - code = 0 indicates success; non-zero indicates failure and data should be null.
-    - /refresh relies on the httpOnly refresh_token cookie; clients should send credentials.
+    - All responses use unified envelope: { code, message, data, timestamp }.
+    - code = 0 means success; non-zero means failure and data should be null.
+    - /refresh uses httpOnly refresh cookie; clients should send credentials.
+    - Central issuer APIs are under /api/v1/public/auth/central/*.
 servers:
-  - url: http://127.0.0.1:3203
+  - url: http://127.0.0.1:8100
 paths:
   /api/v1/public/auth/challenge:
     post:
-      summary: Create login challenge
-      description: Generate a SIWE challenge to be signed by the wallet.
+      summary: Create SIWE challenge
+      description: Generate challenge for wallet signature.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/ChallengeRequest'
-            examples:
-              example:
-                value:
-                  address: "0xabc123..."
       responses:
         '200':
           description: Challenge created
@@ -34,32 +31,27 @@ paths:
               schema:
                 $ref: '#/components/schemas/ChallengeResponse'
         '400':
-          description: Missing address or invalid request
+          description: Missing address
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /api/v1/public/auth/verify:
     post:
-      summary: Verify signature
-      description: Verify the signed challenge and issue access + refresh tokens.
+      summary: Verify SIWE signature
+      description: Verify challenge signature and issue access token + refresh cookie.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/VerifyRequest'
-            examples:
-              example:
-                value:
-                  address: "0xabc123..."
-                  signature: "0x..."
       responses:
         '200':
-          description: Verified, access token returned and refresh cookie set
+          description: Verified
           headers:
             Set-Cookie:
-              description: httpOnly refresh_token cookie
+              description: httpOnly refresh token cookie
               schema:
                 type: string
           content:
@@ -67,7 +59,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/TokenResponse'
         '400':
-          description: Missing address/signature or challenge expired
+          description: Missing fields or challenge expired
           content:
             application/json:
               schema:
@@ -79,7 +71,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '500':
-          description: Verification failed
+          description: Verify failed
           content:
             application/json:
               schema:
@@ -87,13 +79,13 @@ paths:
   /api/v1/public/auth/refresh:
     post:
       summary: Refresh access token
-      description: Issue a new access token using the refresh_token cookie.
+      description: Rotate refresh cookie and issue new access token.
       responses:
         '200':
-          description: Refreshed, access token returned and refresh cookie rotated
+          description: Refreshed
           headers:
             Set-Cookie:
-              description: httpOnly refresh_token cookie
+              description: Rotated httpOnly refresh token cookie
               schema:
                 type: string
           content:
@@ -106,28 +98,168 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Refresh failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/public/auth/logout:
     post:
       summary: Logout
-      description: Clear the refresh_token cookie and invalidate session.
+      description: Revoke refresh session and clear refresh cookie.
       responses:
         '200':
           description: Logged out
           headers:
             Set-Cookie:
-              description: refresh_token cleared
+              description: Cleared refresh token cookie
               schema:
                 type: string
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/LogoutResponse'
-  /api/v1/public/profile:
+  /api/v1/public/auth/central/issuer:
     get:
-      summary: Get profile
-      description: 'Example protected endpoint. Requires Authorization: Bearer <access-token> or <UCAN>.'
+      summary: Get central issuer status
+      description: Read central UCAN issuer capability and runtime readiness.
+      responses:
+        '200':
+          description: Issuer status returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CentralIssuerStatusResponse'
+  /api/v1/public/auth/central/session:
+    post:
+      summary: Create central issue session
+      description: |
+        Create short-lived central issue session token.
+        Requires Bearer JWT access token.
       security:
-        - bearerAuth: []
+        - accessTokenAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CentralSessionRequest'
+      responses:
+        '200':
+          description: Session created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CentralSessionResponse'
+        '400':
+          description: Missing subject or bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing or invalid access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Subject mismatch or issue mode disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Issuer not ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal issuer error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/public/auth/central/issue:
+    post:
+      summary: Issue central UCAN
+      description: |
+        Issue UCAN with central issuer by using session token.
+        Requires Authorization: Bearer <sessionToken>.
+      security:
+        - sessionTokenAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CentralIssueRequest'
+      responses:
+        '200':
+          description: Central UCAN issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CentralIssueResponse'
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing or invalid session token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Issuer mode denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Issuer not ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal issuer error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/public/auth/central/revoke:
+    post:
+      summary: Revoke central issue session
+      description: Revoke previously created central issue session token.
+      security:
+        - sessionTokenAuth: []
+      responses:
+        '200':
+          description: Session revoked (or already absent)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CentralRevokeResponse'
+        '401':
+          description: Missing session token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/public/profile/me:
+    get:
+      summary: Verify and read current auth profile
+      description: |
+        Protected endpoint used to verify backend auth/authorization.
+        Supports JWT and UCAN via Authorization header.
+      security:
+        - accessTokenAuth: []
         - ucanAuth: []
       responses:
         '200':
@@ -135,16 +267,16 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProfileResponse'
+                $ref: '#/components/schemas/ProfileMeResponse'
         '401':
-          description: Missing or invalid access token
+          description: Missing or invalid token
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 components:
   securitySchemes:
-    bearerAuth:
+    accessTokenAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
@@ -152,6 +284,10 @@ components:
       type: http
       scheme: bearer
       bearerFormat: UCAN
+    sessionTokenAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: OpaqueSessionToken
   schemas:
     BaseResponse:
       type: object
@@ -182,6 +318,25 @@ components:
               type: object
               nullable: true
               description: Always null when code != 0
+    UcanCapability:
+      type: object
+      properties:
+        with:
+          type: string
+          description: Preferred resource field
+          example: app:all:localhost-8100
+        can:
+          type: string
+          description: Preferred action field
+          example: invoke
+        resource:
+          type: string
+          description: Legacy alias of with
+          example: app:all:localhost-8100
+        action:
+          type: string
+          description: Legacy alias of can
+          example: invoke
     ChallengeRequest:
       type: object
       required:
@@ -189,8 +344,7 @@ components:
       properties:
         address:
           type: string
-          description: Wallet address (hex)
-          example: 0xabc123...
+          example: '0x751aa8b544c8aa6457d9428da5e38a24469f8d83'
     VerifyRequest:
       type: object
       required:
@@ -199,12 +353,10 @@ components:
       properties:
         address:
           type: string
-          description: Wallet address (hex)
-          example: 0xabc123...
+          example: '0x751aa8b544c8aa6457d9428da5e38a24469f8d83'
         signature:
           type: string
-          description: Signed challenge
-          example: 0x...
+          example: '0x...'
     ChallengeData:
       type: object
       required:
@@ -223,9 +375,11 @@ components:
         issuedAt:
           type: integer
           format: int64
+          description: Unix epoch milliseconds
         expiresAt:
           type: integer
           format: int64
+          description: Unix epoch milliseconds
     TokenData:
       type: object
       required:
@@ -238,13 +392,15 @@ components:
           type: string
         token:
           type: string
-          description: Access token (JWT)
+          description: JWT access token
         expiresAt:
           type: integer
           format: int64
+          description: Unix epoch milliseconds
         refreshExpiresAt:
           type: integer
           format: int64
+          description: Unix epoch milliseconds
     LogoutData:
       type: object
       required:
@@ -253,7 +409,7 @@ components:
         logout:
           type: boolean
           example: true
-    ProfileData:
+    ProfileMeData:
       type: object
       required:
         - address
@@ -261,9 +417,183 @@ components:
       properties:
         address:
           type: string
+        issuer:
+          type: string
+          nullable: true
+          description: UCAN issuer DID when authType=ucan
+        ucanSource:
+          type: string
+          nullable: true
+          enum:
+            - wallet
+            - central
+          description: UCAN source when authType=ucan
+        authType:
+          type: string
+          nullable: true
+          enum:
+            - jwt
+            - ucan
         issuedAt:
           type: integer
           format: int64
+          description: Unix epoch milliseconds
+    CentralIssuerStatusData:
+      type: object
+      required:
+        - enabled
+        - mode
+        - ready
+        - sessionTtlMs
+        - tokenTtlMs
+        - defaultAudience
+        - defaultCapabilities
+      properties:
+        enabled:
+          type: boolean
+        mode:
+          type: string
+          enum:
+            - verify
+            - issue
+            - hybrid
+        ready:
+          type: boolean
+        issuerDid:
+          type: string
+          nullable: true
+        sessionTtlMs:
+          type: integer
+          format: int64
+        tokenTtlMs:
+          type: integer
+          format: int64
+        defaultAudience:
+          type: string
+        defaultCapabilities:
+          type: array
+          items:
+            $ref: '#/components/schemas/UcanCapability'
+        error:
+          type: string
+          nullable: true
+    CentralSessionRequest:
+      type: object
+      properties:
+        subject:
+          type: string
+          description: Optional, must match access token address when provided
+          example: '0x751aa8b544c8aa6457d9428da5e38a24469f8d83'
+        sessionTtlMs:
+          type: integer
+          format: int64
+          description: Optional override, positive integer milliseconds
+          example: 300000
+    CentralSessionData:
+      type: object
+      required:
+        - subject
+        - issuerDid
+        - sessionToken
+        - issuedAt
+        - expiresAt
+      properties:
+        subject:
+          type: string
+        issuerDid:
+          type: string
+        sessionToken:
+          type: string
+        issuedAt:
+          type: integer
+          format: int64
+          description: Unix epoch milliseconds
+        expiresAt:
+          type: integer
+          format: int64
+          description: Unix epoch milliseconds
+    CentralIssueRequest:
+      type: object
+      properties:
+        audience:
+          type: string
+          description: Optional override, fallback to configured default audience
+          example: did:web:localhost:8100
+        capabilities:
+          type: array
+          items:
+            $ref: '#/components/schemas/UcanCapability'
+        expiresInMs:
+          type: integer
+          format: int64
+          description: Optional UCAN TTL override in milliseconds
+          example: 300000
+        ttlMs:
+          type: integer
+          format: int64
+          description: Compatibility alias of expiresInMs
+          example: 300000
+    CentralIssueData:
+      type: object
+      required:
+        - ucan
+        - issuer
+        - issuerDid
+        - subject
+        - audience
+        - capabilities
+        - notBefore
+        - expiresAt
+        - nbf
+        - exp
+        - iat
+      properties:
+        ucan:
+          type: string
+        issuer:
+          type: string
+          description: DID of central issuer
+        issuerDid:
+          type: string
+          description: Alias of issuer
+        subject:
+          type: string
+          description: UCAN sub claim
+        audience:
+          type: string
+          description: UCAN aud claim
+        capabilities:
+          type: array
+          items:
+            $ref: '#/components/schemas/UcanCapability'
+        notBefore:
+          type: integer
+          format: int64
+          description: Unix epoch seconds
+        expiresAt:
+          type: integer
+          format: int64
+          description: Unix epoch seconds
+        nbf:
+          type: integer
+          format: int64
+          description: Alias of notBefore (seconds)
+        exp:
+          type: integer
+          format: int64
+          description: Alias of expiresAt (seconds)
+        iat:
+          type: integer
+          format: int64
+          description: Alias of notBefore (seconds)
+    CentralRevokeData:
+      type: object
+      required:
+        - revoked
+      properties:
+        revoked:
+          type: boolean
+          example: true
     ChallengeResponse:
       allOf:
         - $ref: '#/components/schemas/BaseResponse'
@@ -291,7 +621,7 @@ components:
           properties:
             data:
               $ref: '#/components/schemas/LogoutData'
-    ProfileResponse:
+    ProfileMeResponse:
       allOf:
         - $ref: '#/components/schemas/BaseResponse'
         - type: object
@@ -299,4 +629,40 @@ components:
             - data
           properties:
             data:
-              $ref: '#/components/schemas/ProfileData'
+              $ref: '#/components/schemas/ProfileMeData'
+    CentralIssuerStatusResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          required:
+            - data
+          properties:
+            data:
+              $ref: '#/components/schemas/CentralIssuerStatusData'
+    CentralSessionResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          required:
+            - data
+          properties:
+            data:
+              $ref: '#/components/schemas/CentralSessionData'
+    CentralIssueResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          required:
+            - data
+          properties:
+            data:
+              $ref: '#/components/schemas/CentralIssueData'
+    CentralRevokeResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          required:
+            - data
+          properties:
+            data:
+              $ref: '#/components/schemas/CentralRevokeData'

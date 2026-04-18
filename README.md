@@ -152,8 +152,6 @@ ln -s /path/to/web3-bs /path/to/your-dapp/node_modules/@yeying-community/web3-bs
 
 - [文档导航](./docs/文档导航.md)
 - [快速上手](./docs/快速上手.md)
-- [能力矩阵](./docs/能力矩阵.md)
-- [SDK 能力与账户管理设计](./docs/SDK能力与账户管理设计.md)
-- [库的定位与能力边界](./docs/库的定位与能力边界.md)
-- [移动端认证路径总览](./docs/移动端认证路径总览.md)
-- [开放接口规范（OpenAPI）](./docs/开放接口规范.yaml)
+- [SDK能力](./docs/SDK能力.md)
+- [移动端认证与授权选型指南](./docs/移动端认证与授权选型指南.md)
+- [接口规范（OpenAPI）](./docs/开放接口规范.yaml)
