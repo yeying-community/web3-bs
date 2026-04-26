@@ -21,6 +21,52 @@ export type WebDavRequestOptions = {
   signal?: AbortSignal;
 };
 
+export type WebDavShareExpiresUnit =
+  | 'minute'
+  | 'hour'
+  | 'day'
+  | 'week'
+  | 'month'
+  | 'year';
+
+export type WebDavShareItem = {
+  token: string;
+  name: string;
+  path: string;
+  url: string;
+  viewCount: number;
+  downloadCount: number;
+  expiresAt?: string;
+  createdAt?: string;
+};
+
+export type CreateWebDavShareLinkOptions = {
+  path: string;
+  expiresIn?: number;
+  expiresValue?: number;
+  expiresUnit?: WebDavShareExpiresUnit;
+  auth?: WebDavAuth;
+  token?: string;
+  signal?: AbortSignal;
+};
+
+export type WebDavShareListOptions = {
+  auth?: WebDavAuth;
+  token?: string;
+  signal?: AbortSignal;
+};
+
+export type WebDavShareRevokeOptions = {
+  auth?: WebDavAuth;
+  token?: string;
+  signal?: AbortSignal;
+};
+
+export type WebDavShareRevokeResult = {
+  message?: string;
+  revoked?: boolean;
+};
+
 function normalizeBaseUrl(baseUrl: string): string {
   return baseUrl.replace(/\/+$/, '');
 }
@@ -42,6 +88,10 @@ function joinUrl(baseUrl: string, path: string): string {
   const base = normalizeBaseUrl(baseUrl);
   const suffix = path.startsWith('/') ? path : `/${path}`;
   return `${base}${suffix}`;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
 }
 
 function resolveAuthHeader(auth?: WebDavAuth, token?: string): string | null {
@@ -258,6 +308,96 @@ export class WebDavClient {
       throw new Error(`WebDAV recycle clear failed: ${res.status} ${res.statusText}`);
     }
     return await res.json();
+  }
+
+  private async requestApiJson(
+    method: string,
+    apiPath: string,
+    body?: unknown,
+    options?: {
+      auth?: WebDavAuth;
+      token?: string;
+      signal?: AbortSignal;
+    }
+  ): Promise<unknown> {
+    const headers = this.buildHeaders({
+      auth: options?.auth,
+      token: options?.token,
+      contentType: body === undefined ? undefined : 'application/json',
+    });
+    const response = await this.fetcher(joinUrl(this.baseUrl, apiPath), {
+      method,
+      headers,
+      body: body === undefined ? undefined : JSON.stringify(body),
+      credentials: this.credentials,
+      signal: options?.signal,
+    });
+    if (!response.ok) {
+      throw new Error(`WebDAV ${method} ${apiPath} failed: ${response.status} ${response.statusText}`);
+    }
+    return await response.json();
+  }
+
+  getShareAccessUrl(token: string, fileName?: string): string {
+    const normalizedToken = encodeURIComponent(String(token || '').trim());
+    if (!normalizedToken) {
+      throw new Error('Share token is required');
+    }
+    const encodedFileName = String(fileName || '').trim()
+      ? `/${encodeURIComponent(String(fileName || '').trim())}`
+      : '';
+    return joinUrl(this.baseUrl, `/api/v1/public/share/${normalizedToken}${encodedFileName}`);
+  }
+
+  async createShareLink(options: CreateWebDavShareLinkOptions): Promise<WebDavShareItem> {
+    const normalizedPath = String(options.path || '').trim();
+    if (!normalizedPath) {
+      throw new Error('Share path is required');
+    }
+    const payload = await this.requestApiJson(
+      'POST',
+      '/api/v1/public/share/create',
+      {
+        path: normalizedPath,
+        expiresIn: options.expiresIn,
+        expiresValue: options.expiresValue,
+        expiresUnit: options.expiresUnit,
+      },
+      options
+    );
+    if (!isRecord(payload)) {
+      throw new Error('WebDAV share create response is invalid');
+    }
+    return payload as unknown as WebDavShareItem;
+  }
+
+  async listShareLinks(options: WebDavShareListOptions = {}): Promise<WebDavShareItem[]> {
+    const payload = await this.requestApiJson('GET', '/api/v1/public/share/list', undefined, options);
+    if (!isRecord(payload)) {
+      return [];
+    }
+    const items = payload.items;
+    if (!Array.isArray(items)) {
+      return [];
+    }
+    return items.filter(isRecord) as unknown as WebDavShareItem[];
+  }
+
+  async revokeShareLink(token: string, options: WebDavShareRevokeOptions = {}): Promise<WebDavShareRevokeResult> {
+    const normalizedToken = String(token || '').trim();
+    if (!normalizedToken) {
+      throw new Error('Share token is required');
+    }
+    const payload = await this.requestApiJson(
+      'POST',
+      '/api/v1/public/share/revoke',
+      { token: normalizedToken },
+      options
+    );
+    if (!isRecord(payload)) {
+      return {};
+    }
+    return payload as unknown as WebDavShareRevokeResult;
   }
 }
 

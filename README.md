@@ -59,6 +59,7 @@ npm install @yeying-community/web3-bs
 
 - `createWebDavClient`
 - `initWebDavStorage`（自动生成/复用 WebDAV Invocation UCAN，可自动创建应用目录）
+- `createShareLink` / `listShareLinks` / `revokeShareLink`（公开分享链接管理）
 - `initDappSession`（SIWE 登录 + WebDAV UCAN 初始化）
 - `deriveAppIdFromLocation` / `deriveAppIdFromHost`
 
@@ -96,6 +97,30 @@ const webdav = await initWebDavStorage({
 
 await webdav.client.upload(`${webdav.appDir}/hello.txt`, 'Hello WebDAV');
 ```
+
+### WebDAV 分享链接（warehouse）
+
+```ts
+import { createWebDavClient } from '@yeying-community/web3-bs';
+
+const client = createWebDavClient({
+  baseUrl: 'http://localhost:6065',
+  token: '<JWT_OR_UCAN>',
+});
+
+// expiresValue = 0 表示长期（不过期）分享链接
+const share = await client.createShareLink({
+  path: '/apps/demo/hello.txt',
+  expiresValue: 0,
+  expiresUnit: 'day',
+});
+
+console.log(share.url);
+```
+
+分享链接权限边界（warehouse 当前实现）：
+- 使用 UCAN 且 capability 带 `app` scope（如 `app:all:<appId>`）时，`createShareLink` / `listShareLinks` 仅允许授权目录内的文件路径。
+- 使用 JWT（或未携带 UCAN `app` scope）时，不会自动套用上述目录过滤，最终范围由后端鉴权策略决定。
 
 ## Demo
 
