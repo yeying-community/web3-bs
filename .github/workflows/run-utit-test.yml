@@ -41,7 +41,6 @@ jobs:
 
       - name: start to run ut test
         run: |
-          npm run test -- tests/**/*.ut.ts
-
+          npm test
 
 

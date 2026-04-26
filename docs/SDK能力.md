@@ -186,6 +186,7 @@ const unsubscribe = watchAccounts(provider, () => {
 ### 5.5 WebDAV 与会话编排
 
 - `createWebDavClient`
+- `createShareLink` / `listShareLinks` / `revokeShareLink`
 - `initWebDavStorage`
 - `initDappSession`
 - `deriveAppIdFromLocation` / `deriveAppIdFromHost`
@@ -209,6 +210,12 @@ const unsubscribe = watchAccounts(provider, () => {
 - capability 资源格式必须与目标服务定义一致（建议统一 `with/can`）
 - 多钱包支持不代表高级能力跨钱包完全等价，取决于钱包能力实现
 - 建议统一 `appId` 生成规则，避免 `localhost` 与 `127.0.0.1` 产生两套目录
+
+### 7.1 warehouse 分享链接授权边界
+
+- 在 UCAN 链路下，当 capability 使用 `app` scope（例如 `app:all:<appId>`）时，分享链接创建与查询仅允许落在该授权目录内。
+- 在 JWT 或未携带 UCAN `app` scope 的链路下，分享链接范围由后端鉴权策略决定，不自动继承 UCAN 的目录隔离语义。
+- 需要“只能创建/查询授权目录文件分享链接”的场景，建议统一走 UCAN `app` scope 授权。
 
 ## 8. 相关阅读
 
