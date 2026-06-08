@@ -8,15 +8,58 @@ import {
   PreferredAccountOptions,
   WatchAccountsOptions,
   AccountsChangedHandler,
+  WatchProviderOptions,
+  ProviderChangedHandler,
+  WalletErrorInfo,
 } from './types';
 
 const YEYING_RDNS = 'io.github.yeying';
 const DEFAULT_TIMEOUT = 1000;
 const DEFAULT_ACCOUNT_STORAGE_KEY = 'yeying:last_account';
+const DEFAULT_PROVIDER_POLL_INTERVAL = 100;
+const DEFAULT_PROVIDER_MAX_POLLS = 20;
+
+function isProvider(value: unknown): value is Eip1193Provider {
+  return !!value && typeof (value as Eip1193Provider).request === 'function';
+}
 
 function getWindowEthereum(): Eip1193Provider | null {
   if (typeof window === 'undefined') return null;
-  return (window as unknown as { ethereum?: Eip1193Provider }).ethereum || null;
+  const ethereum = (window as unknown as { ethereum?: unknown }).ethereum;
+  return isProvider(ethereum) ? ethereum : null;
+}
+
+function getWindowProviderCandidates(): Eip1193Provider[] {
+  if (typeof window === 'undefined') return [];
+
+  const source = window as unknown as Record<string, unknown>;
+  const candidates: Eip1193Provider[] = [];
+  const addProvider = (provider: unknown) => {
+    if (isProvider(provider) && !candidates.includes(provider)) {
+      candidates.push(provider);
+    }
+  };
+
+  for (const name of [
+    'ethereum',
+    'yeeying',
+    'yeying',
+    'coinbaseWallet',
+    'bitkeep',
+    'tokenpocket',
+    '__YEYING_PROVIDER__',
+  ]) {
+    addProvider(source[name]);
+  }
+
+  const ethereum = getWindowEthereum();
+  if (Array.isArray(ethereum?.providers)) {
+    for (const provider of ethereum.providers) {
+      addProvider(provider);
+    }
+  }
+
+  return candidates;
 }
 
 function readStoredAccount(storageKey: string): string | null {
@@ -64,7 +107,7 @@ function selectBestProvider(
   candidates: Eip6963ProviderDetail[],
   preferYeYing: boolean
 ): Eip1193Provider | null {
-  if (candidates.length === 0) return null;
+  if (candidates.length === 0) return selectBestWindowProvider(preferYeYing);
   if (preferYeYing) {
     const yeying = candidates.find(c => isYeYingProvider(c.provider, c.info));
     if (yeying) return yeying.provider;
@@ -72,12 +115,22 @@ function selectBestProvider(
   return candidates[0].provider;
 }
 
+function selectBestWindowProvider(preferYeYing: boolean): Eip1193Provider | null {
+  const candidates = getWindowProviderCandidates();
+  if (candidates.length === 0) return null;
+  if (preferYeYing) {
+    const yeying = candidates.find(provider => isYeYingProvider(provider));
+    if (yeying) return yeying;
+  }
+  return candidates[0];
+}
+
 export async function getProvider(
   options: ProviderDiscoveryOptions = {}
 ): Promise<Eip1193Provider | null> {
   const preferYeYing = options.preferYeYing !== false;
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT;
-  const windowProvider = getWindowEthereum();
+  const windowProvider = selectBestWindowProvider(preferYeYing);
 
   if (preferYeYing && isYeYingProvider(windowProvider)) {
     return windowProvider;
@@ -115,7 +168,7 @@ export async function getProvider(
     };
 
     const onEthereumInitialized = () => {
-      const injected = getWindowEthereum();
+      const injected = selectBestWindowProvider(preferYeYing);
       if (preferYeYing && isYeYingProvider(injected)) {
         safeResolve(injected);
       }
@@ -129,7 +182,7 @@ export async function getProvider(
       const best =
         selectBestProvider(discovered, preferYeYing) ||
         windowProvider ||
-        getWindowEthereum();
+        selectBestWindowProvider(preferYeYing);
       safeResolve(best || null);
     }, timeoutMs);
 
@@ -143,6 +196,122 @@ export async function getProvider(
       safeResolve(windowProvider);
     }
   });
+}
+
+export function watchProvider(
+  handler: ProviderChangedHandler,
+  options: WatchProviderOptions = {}
+): () => void {
+  if (typeof window === 'undefined') {
+    handler({ provider: null, present: false });
+    return () => {};
+  }
+
+  const preferYeYing = options.preferYeYing !== false;
+  const pollIntervalMs = options.pollIntervalMs ?? DEFAULT_PROVIDER_POLL_INTERVAL;
+  const maxPolls = options.maxPolls ?? DEFAULT_PROVIDER_MAX_POLLS;
+  let stopped = false;
+  let lastProvider: Eip1193Provider | null | undefined;
+  let pollCount = 0;
+  let pollTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const emit = () => {
+    if (stopped) return;
+    const provider = selectBestWindowProvider(preferYeYing);
+    if (provider === lastProvider) return;
+    lastProvider = provider;
+    handler({ provider, present: !!provider });
+  };
+
+  const poll = () => {
+    if (stopped) return;
+    emit();
+    pollCount += 1;
+    if (lastProvider || pollCount >= maxPolls) return;
+    pollTimer = setTimeout(poll, pollIntervalMs);
+  };
+
+  const handleProviderReady = () => {
+    emit();
+  };
+
+  window.addEventListener('ethereum#initialized', handleProviderReady);
+  window.addEventListener('eip6963:announceProvider', handleProviderReady as EventListener);
+
+  try {
+    window.dispatchEvent(new Event('eip6963:requestProvider'));
+  } catch {
+    // Ignore unsupported event dispatch environments.
+  }
+
+  poll();
+
+  return () => {
+    stopped = true;
+    if (pollTimer) {
+      clearTimeout(pollTimer);
+    }
+    window.removeEventListener('ethereum#initialized', handleProviderReady);
+    window.removeEventListener('eip6963:announceProvider', handleProviderReady as EventListener);
+  };
+}
+
+export function getWalletErrorMessage(error: unknown): string {
+  if (!error) return '';
+  if (typeof error === 'string') return error;
+  if (error instanceof Error) return error.message || String(error);
+  const message = (error as { message?: unknown }).message;
+  if (typeof message === 'string') return message;
+  return String(error);
+}
+
+export function getWalletErrorCode(error: unknown): number | null {
+  const code = Number((error as { code?: unknown })?.code);
+  if (!Number.isNaN(code)) return code;
+  const causeCode = Number((error as { cause?: { code?: unknown } })?.cause?.code);
+  if (!Number.isNaN(causeCode)) return causeCode;
+  return null;
+}
+
+export function classifyWalletError(error: unknown): WalletErrorInfo {
+  const code = getWalletErrorCode(error);
+  const message = getWalletErrorMessage(error);
+  const lowerMessage = message.toLowerCase();
+
+  if (code === 4001 || lowerMessage.includes('user rejected')) {
+    return { type: 'userRejected', code, message };
+  }
+
+  if (
+    code === 4900 ||
+    lowerMessage.includes('disconnected') ||
+    lowerMessage.includes('reconnect') ||
+    lowerMessage.includes('not connected')
+  ) {
+    return { type: 'disconnected', code, message };
+  }
+
+  if (lowerMessage.includes('timeout')) {
+    return { type: 'timeout', code, message };
+  }
+
+  if (
+    lowerMessage.includes('no injected wallet provider') ||
+    lowerMessage.includes('未检测到钱包')
+  ) {
+    return { type: 'notFound', code, message };
+  }
+
+  return { type: 'unknown', code, message };
+}
+
+export function isUserRejectedWalletAction(error: unknown): boolean {
+  return classifyWalletError(error).type === 'userRejected';
+}
+
+export function isWalletReconnectError(error: unknown): boolean {
+  const type = classifyWalletError(error).type;
+  return type === 'disconnected' || type === 'timeout';
 }
 
 export async function requireProvider(

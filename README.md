@@ -21,9 +21,11 @@ npm install @yeying-community/web3-bs
 ### 1) Provider 与账户
 
 - `getProvider` / `requireProvider`
+- `watchProvider`
 - `requestAccounts` / `getAccounts` / `getPreferredAccount` / `watchAccounts`
 - `getChainId` / `getBalance`
 - `onAccountsChanged` / `onChainChanged`
+- `classifyWalletError` / `isUserRejectedWalletAction` / `isWalletReconnectError`
 
 ### 2) SIWE + JWT
 

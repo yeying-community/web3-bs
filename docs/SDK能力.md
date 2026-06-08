@@ -79,7 +79,11 @@
 示例：
 
 ```ts
-import { getProvider, getPreferredAccount } from '@yeying-community/web3-bs';
+import { getProvider, getPreferredAccount, watchProvider } from '@yeying-community/web3-bs';
+
+const stopProviderWatch = watchProvider(({ present }) => {
+  console.log('wallet provider present:', present);
+});
 
 const provider = await getProvider({ timeoutMs: 3000 });
 const { account } = await getPreferredAccount({

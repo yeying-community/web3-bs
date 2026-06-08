@@ -17,6 +17,8 @@ export interface Eip1193Provider {
   };
   isMetaMask?: boolean;
   isYeYing?: boolean;
+  providers?: Eip1193Provider[];
+  [key: string]: unknown;
 }
 
 export interface ProviderInfo {
@@ -35,6 +37,29 @@ export interface ProviderDiscoveryOptions {
   timeoutMs?: number;
   preferYeYing?: boolean;
 }
+
+export interface WatchProviderOptions extends ProviderDiscoveryOptions {
+  pollIntervalMs?: number;
+  maxPolls?: number;
+}
+
+export type ProviderChangedHandler = (payload: {
+  provider: Eip1193Provider | null;
+  present: boolean;
+}) => void;
+
+export type WalletErrorType =
+  | 'userRejected'
+  | 'disconnected'
+  | 'timeout'
+  | 'notFound'
+  | 'unknown';
+
+export type WalletErrorInfo = {
+  type: WalletErrorType;
+  code: number | null;
+  message: string;
+};
 
 export interface RequestAccountsOptions {
   provider?: Eip1193Provider;
