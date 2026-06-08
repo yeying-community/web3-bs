@@ -79,7 +79,11 @@
 示例：
 
 ```ts
-import { getProvider, getPreferredAccount } from '@yeying-community/web3-bs';
+import { getProvider, getPreferredAccount, watchProvider } from '@yeying-community/web3-bs';
+
+const stopProviderWatch = watchProvider(({ present }) => {
+  console.log('wallet provider present:', present);
+});
 
 const provider = await getProvider({ timeoutMs: 3000 });
 const { account } = await getPreferredAccount({
@@ -87,6 +91,8 @@ const { account } = await getPreferredAccount({
   autoConnect: false,
 });
 ```
+
+`requestAccounts` 默认会对同一 provider 的并发连接请求做去重。业务按钮仍建议在提交中展示 loading/disabled 状态，但 SDK 会避免重复点击直接触发多个 `eth_requestAccounts`。
 
 ### 3.2 账户变更处理
 

@@ -21,9 +21,13 @@ npm install @yeying-community/web3-bs
 ### 1) Provider 与账户
 
 - `getProvider` / `requireProvider`
+- `watchProvider`
 - `requestAccounts` / `getAccounts` / `getPreferredAccount` / `watchAccounts`
 - `getChainId` / `getBalance`
 - `onAccountsChanged` / `onChainChanged`
+- `classifyWalletError` / `isUserRejectedWalletAction` / `isWalletReconnectError`
+
+`requestAccounts` 默认会复用同一 provider 上尚未完成的连接请求，避免用户重复点击时触发多个钱包授权弹窗。
 
 ### 2) SIWE + JWT
 
