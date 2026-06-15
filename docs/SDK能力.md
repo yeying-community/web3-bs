@@ -94,6 +94,27 @@ const { account } = await getPreferredAccount({
 
 `requestAccounts` 默认会对同一 provider 的并发连接请求做去重。业务按钮仍建议在提交中展示 loading/disabled 状态，但 SDK 会避免重复点击直接触发多个 `eth_requestAccounts`。
 
+如果钱包确认窗口已经打开、但被其他页面遮挡，前端不应该继续盲目发起新的连接或签名请求，而应该优先把已有确认窗口拉回前台。为此 SDK 提供了 `focusPendingApproval`：
+
+```ts
+import { focusPendingApproval, requestAccounts } from '@yeying-community/web3-bs';
+
+const pending = await focusPendingApproval().catch(() => ({ focused: false }));
+if (!pending.focused) {
+  await requestAccounts();
+}
+```
+
+适用范围：
+- 钱包连接弹窗
+- 消息签名弹窗
+- 钱包解锁弹窗
+
+产品侧建议：
+- 用户重复点击“连接钱包 / 登录 / 签名确认”时，优先调用 `focusPendingApproval`
+- 只有在不存在待确认窗口时，才真正发起新的钱包 RPC
+- 这类逻辑应由 SDK 统一提供，业务应用只负责按钮状态与提示文案
+
 ### 3.2 账户变更处理
 
 账户变化后建议清理认证与授权缓存，重新发起登录授权流程：

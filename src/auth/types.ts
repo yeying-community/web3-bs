@@ -66,6 +66,14 @@ export interface RequestAccountsOptions {
   dedupe?: boolean;
 }
 
+export type FocusPendingApprovalResult = {
+  focused: boolean;
+  type: string | null;
+  requestId?: string | null;
+  origin?: string;
+  tabId?: number | null;
+};
+
 export type AccountSelection = {
   account: string | null;
   accounts: string[];
