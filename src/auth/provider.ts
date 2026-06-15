@@ -11,6 +11,7 @@ import {
   WatchProviderOptions,
   ProviderChangedHandler,
   WalletErrorInfo,
+  FocusPendingApprovalResult,
 } from './types';
 
 const YEYING_RDNS = 'io.github.yeying';
@@ -347,6 +348,32 @@ export async function requestAccounts(
   } finally {
     requestAccountsInFlight.delete(provider);
   }
+}
+
+export async function focusPendingApproval(
+  provider?: Eip1193Provider
+): Promise<FocusPendingApprovalResult> {
+  const p = provider || (await requireProvider());
+  const result = await p.request({
+    method: 'wallet_focusPendingApproval',
+  });
+
+  if (!result || typeof result !== 'object') {
+    return { focused: false, type: null };
+  }
+
+  const payload = result as Record<string, unknown>;
+  return {
+    focused: Boolean(payload.focused),
+    type: typeof payload.type === 'string' ? payload.type : null,
+    requestId:
+      typeof payload.requestId === 'string' ? payload.requestId : null,
+    origin: typeof payload.origin === 'string' ? payload.origin : '',
+    tabId:
+      typeof payload.tabId === 'number' && Number.isFinite(payload.tabId)
+        ? payload.tabId
+        : null,
+  };
 }
 
 export async function getAccounts(provider?: Eip1193Provider): Promise<string[]> {
