@@ -4,11 +4,26 @@ import test from 'node:test';
 
 import {
   authCentralUcanFetch,
+  authUcanFetch,
+  classifyUcanAuthError,
   clearCentralSessionToken,
   createCentralSession,
+  createUcanSession,
+  getOrCreateInvocationUcan,
+  getUcanTokenTiming,
   getCentralIssuerInfo,
+  isUcanTokenFresh,
   issueCentralUcan,
 } from '../dist/web3-bs.esm.js';
+
+function base64UrlJson(value) {
+  return Buffer.from(JSON.stringify(value), 'utf8')
+    .toString('base64url');
+}
+
+function unsignedUcan(payload) {
+  return `${base64UrlJson({ alg: 'none', typ: 'UCAN' })}.${base64UrlJson(payload)}.signature`;
+}
 
 function parseJsonSafe(input) {
   if (!input) return {};
@@ -22,6 +37,108 @@ function parseJsonSafe(input) {
 function readAuthHeader(req) {
   return String(req.headers.authorization || '').trim();
 }
+
+test('UCAN 有效期工具：支持 skew 判断与过期错误分类', () => {
+  const nowMs = 1_800_000_000_000;
+  const token = unsignedUcan({
+    iss: 'did:key:zIssuer',
+    aud: 'did:web:api.example.com',
+    cap: [{ with: 'app:all:demo', can: 'invoke' }],
+    exp: nowMs + 120_000,
+    nbf: nowMs - 1_000,
+    prf: [],
+  });
+
+  const timing = getUcanTokenTiming(token, { nowMs });
+  assert.equal(timing.valid, true);
+  assert.equal(timing.remainingMs, 120_000);
+  assert.equal(isUcanTokenFresh(timing, { skewMs: 60_000 }), true);
+  assert.equal(isUcanTokenFresh(timing, { skewMs: 180_000 }), false);
+
+  const expired = classifyUcanAuthError({
+    error: {
+      message: 'UCAN expired (trace id: test)',
+      type: 'one_api_error',
+    },
+  });
+  assert.equal(expired.type, 'expired');
+  assert.equal(expired.shouldRefresh, true);
+  assert.equal(expired.retryable, true);
+});
+
+test('UCAN Invocation：足够新鲜时直接复用，避免无意义刷新', async () => {
+  const nowMs = 1_800_000_000_000;
+  const token = unsignedUcan({
+    iss: 'did:key:zIssuer',
+    aud: 'did:web:api.example.com',
+    cap: [{ with: 'app:all:demo', can: 'invoke' }],
+    exp: nowMs + 300_000,
+    nbf: nowMs - 1_000,
+    prf: [],
+  });
+
+  const resolved = await getOrCreateInvocationUcan({
+    ucan: token,
+    audience: 'did:web:api.example.com',
+    capabilities: [{ with: 'app:all:demo', can: 'invoke' }],
+    nowMs,
+  });
+
+  assert.equal(resolved, token);
+});
+
+test('UCAN fetch：遇到过期错误后自动刷新 Invocation 并重试一次', async () => {
+  const authHeaders = [];
+  const session = await createUcanSession({ id: 'retry-test-session', forceNew: true });
+  let signatureCount = 0;
+  session.signer = async () => `test-signature-${++signatureCount}`;
+  let requestCount = 0;
+
+  await withMockServer(async (req, rawBody, res) => {
+    const authHeader = readAuthHeader(req);
+    authHeaders.push(authHeader);
+
+    requestCount += 1;
+    if (requestCount === 1) {
+      res.statusCode = 401;
+      res.setHeader('content-type', 'application/json');
+      res.end(
+        JSON.stringify({
+          error: {
+            message: 'UCAN expired (trace id: retry-test)',
+            code: 'UCAN_EXPIRED',
+          },
+        })
+      );
+      return;
+    }
+
+    assert.equal(rawBody, JSON.stringify({ hello: 'world' }));
+    res.statusCode = 200;
+    res.setHeader('content-type', 'application/json');
+    res.end(JSON.stringify({ ok: true }));
+  }, async origin => {
+    const response = await authUcanFetch(
+      `${origin}/api/v1/public/protected`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ hello: 'world' }),
+      },
+      {
+        issuer: session,
+        audience: 'did:web:api.example.com',
+        capabilities: [{ with: 'app:all:demo', can: 'invoke' }],
+        proofs: ['root-proof'],
+      }
+    );
+
+    assert.equal(response.status, 200);
+    assert.equal(authHeaders.length, 2);
+    assert.notEqual(authHeaders[0], authHeaders[1]);
+    assert.equal(signatureCount, 2);
+  });
+});
 
 async function withMockServer(handler, run) {
   const server = createServer((req, res) => {

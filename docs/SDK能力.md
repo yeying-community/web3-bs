@@ -165,6 +165,7 @@ const unsubscribe = watchAccounts(provider, () => {
 - Root 建议作为跨后端“统一授权根”
 - Invocation 作为短期令牌按后端和能力发放
 - Root 或 Invocation 过期后按链路重建
+- 发起长流式请求前，不只判断 token 未过期，还要判断剩余有效期是否足够支撑本次请求
 
 ### 4.3 SIWE 与 UCAN 对比
 
@@ -198,9 +199,11 @@ const unsubscribe = watchAccounts(provider, () => {
 - `createUcanSession` / `getUcanSession`
 - `createRootUcan` / `getOrCreateUcanRoot`
 - `createDelegationUcan`
-- `createInvocationUcan`
+- `createInvocationUcan` / `getOrCreateInvocationUcan`
 - `authUcanFetch`
 - `normalizeUcanCapabilities`
+- `getUcanTokenTiming` / `isUcanTokenFresh`
+- `classifyUcanAuthError`
 
 ### 5.4 中心化 UCAN
 
@@ -230,6 +233,12 @@ const unsubscribe = watchAccounts(provider, () => {
 | WebDAV 直接访问 | `createWebDavClient` |
 | WebDAV + UCAN 自动初始化 | `initWebDavStorage` |
 
+长请求建议：
+- 普通短请求使用默认 token skew 即可，skew 只用于判断是否自动换新 Invocation。
+- token 已过期或进入 skew 窗口时，应自动创建新的 Invocation，不应提前向用户报错。
+- 如果服务端仍返回 `UCAN expired` / 401，`authUcanFetch` 会在可重放请求体场景下自动刷新 Invocation 并重试一次。
+- 详见 [UCAN有效期与续期机制](./UCAN有效期与续期机制.md)。
+
 ## 7. 工程与安全注意事项
 
 - 仅支持浏览器环境（依赖 `window` / `fetch` / `localStorage` / `IndexedDB`）
@@ -247,5 +256,6 @@ const unsubscribe = watchAccounts(provider, () => {
 ## 8. 相关阅读
 
 - [快速上手](./快速上手.md)
+- [UCAN有效期与续期机制](./UCAN有效期与续期机制.md)
 - [移动端认证与授权选型指南](./移动端认证与授权选型指南.md)
 - [开放接口规范](./开放接口规范.yaml)
