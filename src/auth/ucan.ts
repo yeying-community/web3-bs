@@ -146,7 +146,7 @@ export type UcanAuthErrorInfo = {
 
 const DEFAULT_SESSION_ID = 'default';
 export const DEFAULT_UCAN_SESSION_TTL_MS = 24 * 60 * 60 * 1000;
-export const DEFAULT_UCAN_TOKEN_TTL_MS = 60 * 60 * 1000;
+export const DEFAULT_UCAN_TOKEN_TTL_MS = 40 * 60 * 1000;
 export const DEFAULT_UCAN_TOKEN_SKEW_MS = 60 * 1000;
 const DB_NAME = 'yeying-web3';
 const DB_STORE = 'ucan-sessions';

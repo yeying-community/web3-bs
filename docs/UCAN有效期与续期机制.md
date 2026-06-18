@@ -60,7 +60,7 @@ Delegation UCAN 用于把能力委托给另一个 audience。
 
 默认有效期：
 - `DEFAULT_UCAN_TOKEN_TTL_MS`
-- 当前值：1 小时
+- 当前值：40 分钟
 
 特点：
 - 适合短期委托。
@@ -72,7 +72,7 @@ Invocation UCAN 是真正发给目标服务的短期调用 token。
 
 默认有效期：
 - `DEFAULT_UCAN_TOKEN_TTL_MS`
-- 当前值：1 小时
+- 当前值：40 分钟
 
 默认时钟偏移：
 - `DEFAULT_UCAN_TOKEN_SKEW_MS`
@@ -98,7 +98,7 @@ Invocation UCAN 是真正发给目标服务的短期调用 token。
 | 常量 | 默认值 | 用途 |
 | --- | --- | --- |
 | `DEFAULT_UCAN_SESSION_TTL_MS` | 24 小时 | Root / Session 默认有效期 |
-| `DEFAULT_UCAN_TOKEN_TTL_MS` | 1 小时 | Delegation / Invocation 默认有效期 |
+| `DEFAULT_UCAN_TOKEN_TTL_MS` | 40 分钟 | Delegation / Invocation 默认有效期 |
 | `DEFAULT_UCAN_TOKEN_SKEW_MS` | 1 分钟 | 判断 Invocation 是否需要换新的安全提前量 |
 
 ## 5. SDK 提供的通用能力
@@ -234,7 +234,7 @@ const storage = await initWebDavStorage({
   audience: 'did:web:webdav.example.com',
   appId,
   capabilities: [{ with: `app:all:${appId}`, can: 'write' }],
-  invocationExpiresInMs: 60 * 60 * 1000,
+  invocationExpiresInMs: 40 * 60 * 1000,
 });
 ```
 
@@ -247,10 +247,10 @@ const storage = await initWebDavStorage({
 
 | 场景 | Invocation TTL | 请求前判断 | 说明 |
 | --- | --- | --- | --- |
-| 普通接口请求 | 默认 1 小时 | 默认 skew 即可 | 正常情况下无感复用或换新 |
-| WebDAV 小文件读写 | 默认 1 小时 | 默认 skew 即可 | 过期后由 SDK 自动刷新重试 |
-| AI 流式对话 | 默认 1 小时 | 默认 skew 即可 | 过期后由 SDK 自动刷新重试；极长任务应使用任务 ID 恢复 |
-| 长任务 / 批量任务 | 默认 1 小时或按需更长 | 默认 skew 即可 | 如果任务极长，应改为服务端任务票据 |
+| 普通接口请求 | 默认 40 分钟 | 默认 skew 即可 | 正常情况下无感复用或换新 |
+| WebDAV 小文件读写 | 默认 40 分钟 | 默认 skew 即可 | 过期后由 SDK 自动刷新重试 |
+| AI 流式对话 | 默认 40 分钟 | 默认 skew 即可 | 过期后由 SDK 自动刷新重试；极长任务应使用任务 ID 恢复 |
+| 长任务 / 批量任务 | 默认 40 分钟或按需更长 | 默认 skew 即可 | 如果任务极长，应改为服务端任务票据 |
 
 ## 8. DApp 集成建议
 
