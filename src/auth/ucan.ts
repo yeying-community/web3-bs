@@ -89,6 +89,12 @@ export type CreateUcanTokenOptions = {
   proofs?: UcanProof[];
 };
 
+export type GetOrCreateInvocationUcanOptions = CreateUcanTokenOptions & {
+  ucan?: string;
+  skewMs?: number;
+  nowMs?: number;
+};
+
 export type UcanFetchOptions = {
   ucan?: string;
   audience?: string;
@@ -99,12 +105,49 @@ export type UcanFetchOptions = {
   proofs?: UcanProof[];
   expiresInMs?: number;
   notBeforeMs?: number;
+  skewMs?: number;
   fetcher?: typeof fetch;
 };
 
+export type UcanTokenTiming = {
+  valid: boolean;
+  payload: UcanTokenPayload | null;
+  exp: number | null;
+  nbf: number | null;
+  issuedAt: number | null;
+  nowMs: number;
+  remainingMs: number | null;
+  activeInMs: number;
+  expired: boolean;
+  notBefore: boolean;
+};
+
+export type UcanTtlPolicy = {
+  expiresInMs?: number;
+  skewMs?: number;
+};
+
+export type UcanAuthErrorType =
+  | 'expired'
+  | 'not-before'
+  | 'unauthorized'
+  | 'forbidden'
+  | 'invalid-token'
+  | 'unknown';
+
+export type UcanAuthErrorInfo = {
+  type: UcanAuthErrorType;
+  message: string;
+  retryable: boolean;
+  shouldRefresh: boolean;
+  status?: number;
+  code?: string | number;
+};
+
 const DEFAULT_SESSION_ID = 'default';
-const DEFAULT_SESSION_TTL = 24 * 60 * 60 * 1000;
-const DEFAULT_UCAN_TTL = 5 * 60 * 1000;
+export const DEFAULT_UCAN_SESSION_TTL_MS = 24 * 60 * 60 * 1000;
+export const DEFAULT_UCAN_TOKEN_TTL_MS = 60 * 60 * 1000;
+export const DEFAULT_UCAN_TOKEN_SKEW_MS = 60 * 1000;
 const DB_NAME = 'yeying-web3';
 const DB_STORE = 'ucan-sessions';
 const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
@@ -191,6 +234,30 @@ function encodeJson(value: unknown): string {
   return toBase64Url(textEncoder.encode(JSON.stringify(value)));
 }
 
+function decodeBase64Url(input: string): string | null {
+  if (!input) return null;
+  const base64 = input.replace(/-/g, '+').replace(/_/g, '/');
+  const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=');
+  try {
+    if (typeof atob === 'function') {
+      return atob(padded);
+    }
+  } catch {
+    // Try Node-compatible fallback below.
+  }
+  try {
+    const nodeBuffer = (globalThis as {
+      Buffer?: { from: (input: string, encoding: string) => { toString: (encoding: string) => string } };
+    }).Buffer;
+    if (nodeBuffer) {
+      return nodeBuffer.from(padded, 'base64').toString('utf8');
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
 function randomNonce(bytes = 16): string {
   const buffer = new Uint8Array(bytes);
   crypto.getRandomValues(buffer);
@@ -202,6 +269,138 @@ function randomNonce(bytes = 16): string {
 function normalizeExpiry(exp: number | undefined, fallbackMs: number): number {
   if (typeof exp === 'number' && !Number.isNaN(exp)) return exp;
   return Date.now() + fallbackMs;
+}
+
+export function normalizeUcanExpiry(exp: number | undefined, fallbackMs: number): number {
+  return normalizeExpiry(exp, fallbackMs);
+}
+
+export function decodeUcanPayload(token: string): UcanTokenPayload | null {
+  const parts = String(token || '').split('.');
+  if (parts.length < 2) return null;
+  const decoded = decodeBase64Url(parts[1]);
+  if (!decoded) return null;
+  try {
+    const payload = JSON.parse(decoded) as UcanTokenPayload;
+    if (!payload || typeof payload !== 'object') return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+export function getUcanTokenTiming(
+  token: string,
+  options: { nowMs?: number } = {}
+): UcanTokenTiming {
+  const nowMs = options.nowMs ?? Date.now();
+  const payload = decodeUcanPayload(token);
+  const exp = typeof payload?.exp === 'number' ? payload.exp : null;
+  const nbf = typeof payload?.nbf === 'number' ? payload.nbf : null;
+  const payloadWithIat = payload as (UcanTokenPayload & { iat?: unknown }) | null;
+  const issuedAt = typeof payloadWithIat?.iat === 'number'
+    ? payloadWithIat.iat
+    : null;
+  const remainingMs = exp === null ? null : exp - nowMs;
+  const activeInMs = nbf === null ? 0 : Math.max(0, nbf - nowMs);
+  const expired = exp === null || (remainingMs !== null && remainingMs <= 0);
+  const notBefore = activeInMs > 0;
+  return {
+    valid: Boolean(payload && !expired && !notBefore),
+    payload,
+    exp,
+    nbf,
+    issuedAt,
+    nowMs,
+    remainingMs,
+    activeInMs,
+    expired,
+    notBefore,
+  };
+}
+
+export function isUcanTokenFresh(
+  tokenOrTiming: string | UcanTokenTiming,
+  options: UcanTtlPolicy & { nowMs?: number } = {}
+): boolean {
+  const timing = typeof tokenOrTiming === 'string'
+    ? getUcanTokenTiming(tokenOrTiming, { nowMs: options.nowMs })
+    : tokenOrTiming;
+  if (!timing.valid) return false;
+  const skewMs = Math.max(0, options.skewMs ?? DEFAULT_UCAN_TOKEN_SKEW_MS);
+  return typeof timing.remainingMs === 'number' && timing.remainingMs > skewMs;
+}
+
+function readErrorField(error: unknown, field: string): unknown {
+  if (!error || typeof error !== 'object') return undefined;
+  const value = (error as Record<string, unknown>)[field];
+  if (value !== undefined) return value;
+  const nestedError = (error as { error?: unknown }).error;
+  if (nestedError && typeof nestedError === 'object') {
+    return (nestedError as Record<string, unknown>)[field];
+  }
+  return undefined;
+}
+
+export function classifyUcanAuthError(error: unknown): UcanAuthErrorInfo {
+  const messageValue = readErrorField(error, 'message');
+  const codeValue = readErrorField(error, 'code');
+  const statusValue = readErrorField(error, 'status') ?? readErrorField(error, 'statusCode');
+  const message = typeof messageValue === 'string'
+    ? messageValue
+    : error instanceof Error
+      ? error.message
+      : String(messageValue || error || '');
+  const status = typeof statusValue === 'number' ? statusValue : undefined;
+  const code = typeof codeValue === 'string' || typeof codeValue === 'number' ? codeValue : undefined;
+  const normalized = `${message} ${String(code || '')}`.toLowerCase();
+
+  if (/ucan.*expired|expired.*ucan|token.*expired|jwt.*expired|\bexp\b/.test(normalized)) {
+    return { type: 'expired', message, retryable: true, shouldRefresh: true, status, code };
+  }
+  if (/not.?before|\bnbf\b|not yet valid/.test(normalized)) {
+    return { type: 'not-before', message, retryable: true, shouldRefresh: false, status, code };
+  }
+  if (/invalid.*token|malformed.*token|bad.*ucan|invalid.*ucan/.test(normalized)) {
+    return { type: 'invalid-token', message, retryable: true, shouldRefresh: true, status, code };
+  }
+  if (status === 401 || /unauthori[sz]ed|unauthenticated/.test(normalized)) {
+    return { type: 'unauthorized', message, retryable: true, shouldRefresh: true, status, code };
+  }
+  if (status === 403 || /forbidden|permission denied|capability/.test(normalized)) {
+    return { type: 'forbidden', message, retryable: false, shouldRefresh: false, status, code };
+  }
+  return { type: 'unknown', message, retryable: false, shouldRefresh: false, status, code };
+}
+
+function isReplayableRequestBody(body: BodyInit | null | undefined): boolean {
+  if (body == null) return true;
+  if (typeof body === 'string') return true;
+  if (typeof URLSearchParams !== 'undefined' && body instanceof URLSearchParams) return true;
+  if (typeof FormData !== 'undefined' && body instanceof FormData) return true;
+  if (typeof Blob !== 'undefined' && body instanceof Blob) return true;
+  if (body instanceof ArrayBuffer) return true;
+  if (ArrayBuffer.isView(body)) return true;
+  return false;
+}
+
+async function parseResponseJsonBody(response: Response): Promise<unknown> {
+  const text = await response.text();
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { raw: text };
+  }
+}
+
+function shouldRetryUcanFetch(response: Response, errorInfo: UcanAuthErrorInfo): boolean {
+  if (errorInfo.type === 'expired' || errorInfo.shouldRefresh) {
+    return true;
+  }
+  if (response.status === 401) return true;
+  if (response.status === 403 && errorInfo.type === 'forbidden') return false;
+  return false;
 }
 
 function isSessionExpired(expiresAt: number | null | undefined, nowMs: number = Date.now()): boolean {
@@ -315,7 +514,7 @@ async function createLocalSession(
   ]);
 
   const createdAt = Date.now();
-  const expiresAt = normalizeExpiry(undefined, options.expiresInMs ?? DEFAULT_SESSION_TTL);
+  const expiresAt = normalizeExpiry(undefined, options.expiresInMs ?? DEFAULT_UCAN_SESSION_TTL_MS);
   const root = shouldKeepRootForSession(record?.root, did, createdAt) ? record?.root : undefined;
 
   await writeSessionRecord({
@@ -633,7 +832,7 @@ export async function createRootUcan(options: CreateRootUcanOptions): Promise<Uc
   const domain = options.domain || (typeof window !== 'undefined' ? window.location.host : '127.0.0.1');
   const uri = options.uri || (typeof window !== 'undefined' ? window.location.origin : 'http://127.0.0.1');
   const nonce = options.nonce || randomNonce(8);
-  const exp = normalizeExpiry(undefined, options.expiresInMs ?? DEFAULT_SESSION_TTL);
+  const exp = normalizeExpiry(undefined, options.expiresInMs ?? DEFAULT_UCAN_SESSION_TTL_MS);
   const nbf = options.notBeforeMs;
 
   const normalizedCapabilities = normalizeUcanCapabilities(options.capabilities);
@@ -727,7 +926,7 @@ export async function createDelegationUcan(options: CreateUcanTokenOptions): Pro
   if (!normalizedCapabilities.length) {
     throw new Error('Missing UCAN capabilities');
   }
-  const exp = normalizeExpiry(undefined, options.expiresInMs ?? DEFAULT_UCAN_TTL);
+  const exp = normalizeExpiry(undefined, options.expiresInMs ?? DEFAULT_UCAN_TOKEN_TTL_MS);
   const payload: UcanTokenPayload = {
     iss: issuer.did,
     aud: options.audience,
@@ -749,7 +948,7 @@ export async function createInvocationUcan(options: CreateUcanTokenOptions): Pro
   if (!normalizedCapabilities.length) {
     throw new Error('Missing UCAN capabilities');
   }
-  const exp = normalizeExpiry(undefined, options.expiresInMs ?? DEFAULT_UCAN_TTL);
+  const exp = normalizeExpiry(undefined, options.expiresInMs ?? DEFAULT_UCAN_TOKEN_TTL_MS);
   const payload: UcanTokenPayload = {
     iss: issuer.did,
     aud: options.audience,
@@ -761,34 +960,98 @@ export async function createInvocationUcan(options: CreateUcanTokenOptions): Pro
   return await signUcanPayload(payload, issuer);
 }
 
+export async function getOrCreateInvocationUcan(
+  options: GetOrCreateInvocationUcanOptions
+): Promise<string> {
+  if (
+    options.ucan &&
+    isUcanTokenFresh(options.ucan, {
+      nowMs: options.nowMs,
+      skewMs: options.skewMs,
+    })
+  ) {
+    return options.ucan;
+  }
+
+  return await createInvocationUcan({
+    issuer: options.issuer,
+    sessionId: options.sessionId,
+    provider: options.provider,
+    audience: options.audience,
+    capabilities: options.capabilities,
+    expiresInMs: options.expiresInMs,
+    notBeforeMs: options.notBeforeMs,
+    proofs: options.proofs,
+  });
+}
+
 export async function authUcanFetch(
   input: RequestInfo | URL,
   init: RequestInit = {},
   options: UcanFetchOptions = {}
 ): Promise<Response> {
   const fetcher = options.fetcher || fetch;
-  let token = options.ucan;
-  if (!token) {
-    if (!options.audience || !options.capabilities) {
+  const audience = options.audience;
+  const capabilities = options.capabilities;
+  const canRefresh = Boolean(audience && capabilities);
+  const canRetry = canRefresh && isReplayableRequestBody(init.body);
+  let token = options.ucan || '';
+
+  if (!token || (canRefresh && !isUcanTokenFresh(token, { skewMs: options.skewMs }))) {
+    if (!audience || !capabilities) {
       throw new Error('Missing UCAN audience or capabilities');
     }
-    token = await createInvocationUcan({
+    token = await getOrCreateInvocationUcan({
+      ucan: options.ucan,
       issuer: options.issuer,
       sessionId: options.sessionId,
       provider: options.provider,
-      audience: options.audience,
-      capabilities: options.capabilities,
+      audience,
+      capabilities,
       expiresInMs: options.expiresInMs,
       notBeforeMs: options.notBeforeMs,
       proofs: options.proofs,
+      skewMs: options.skewMs,
     });
   }
 
-  const headers = new Headers(init.headers || {});
-  headers.set('Authorization', `Bearer ${token}`);
+  const makeHeaders = (bearer: string): Headers => {
+    const headers = new Headers(init.headers || {});
+    headers.set('Authorization', `Bearer ${bearer}`);
+    return headers;
+  };
 
-  return fetcher(input, {
+  let response = await fetcher(input, {
     ...init,
-    headers,
+    headers: makeHeaders(token),
   });
+  if (!canRetry || response.ok) {
+    return response;
+  }
+
+  const payload = await parseResponseJsonBody(response.clone()).catch(() => null);
+  const errorInfo = classifyUcanAuthError(payload || response.statusText || response);
+  if (!shouldRetryUcanFetch(response, errorInfo)) {
+    return response;
+  }
+  if (!audience || !capabilities) {
+    return response;
+  }
+
+  const refreshedToken = await createInvocationUcan({
+    issuer: options.issuer,
+    sessionId: options.sessionId,
+    provider: options.provider,
+    audience,
+    capabilities,
+    expiresInMs: options.expiresInMs,
+    notBeforeMs: options.notBeforeMs,
+    proofs: options.proofs,
+  });
+
+  response = await fetcher(input, {
+    ...init,
+    headers: makeHeaders(refreshedToken),
+  });
+  return response;
 }

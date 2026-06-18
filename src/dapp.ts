@@ -1,16 +1,16 @@
 import { requireProvider } from './auth/provider';
 import { loginWithChallenge } from './auth/siwe';
 import {
-  createInvocationUcan,
   createUcanSession,
+  decodeUcanPayload,
   getCapabilityAction,
   getCapabilityResource,
+  getOrCreateInvocationUcan,
   getOrCreateUcanRoot,
   normalizeUcanCapabilities,
   UcanCapability,
   UcanRootProof,
   UcanSessionKey,
-  UcanTokenPayload,
 } from './auth/ucan';
 import { Eip1193Provider, LoginWithChallengeOptions } from './auth/types';
 import { createWebDavClient, WebDavClient } from './storage/webdav';
@@ -22,7 +22,6 @@ type CachedUcanToken = {
 };
 
 const tokenCache = new Map<string, CachedUcanToken>();
-const TOKEN_SKEW_MS = 5000;
 const DEFAULT_APP_ACTION = 'write';
 const LOOPBACK_HOST_ALIASES = new Set([
   'localhost',
@@ -48,6 +47,7 @@ export type InitWebDavStorageOptions = {
   root?: UcanRootProof;
   rootExpiresInMs?: number;
   invocationExpiresInMs?: number;
+  invocationSkewMs?: number;
   notBeforeMs?: number;
   fetcher?: typeof fetch;
   credentials?: RequestCredentials;
@@ -239,69 +239,27 @@ function resolveInvocationCaps(
   return ensureAppCapability(caps, options);
 }
 
-function isTokenValid(entry: CachedUcanToken, nowMs: number): boolean {
-  if (!entry.exp) return false;
-  if (entry.nbf && nowMs < entry.nbf) return false;
-  return entry.exp - TOKEN_SKEW_MS > nowMs;
-}
-
-function decodeBase64Url(input: string): string | null {
-  if (!input) return null;
-  const base64 = input.replace(/-/g, '+').replace(/_/g, '/');
-  const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=');
-  try {
-    if (typeof atob === 'function') {
-      return atob(padded);
-    }
-  } catch {
-    // ignore
-  }
-  try {
-    const nodeBuffer = (globalThis as {
-      Buffer?: { from: (input: string, encoding: string) => { toString: (encoding: string) => string } };
-    }).Buffer;
-    if (nodeBuffer) {
-      return nodeBuffer.from(padded, 'base64').toString('utf8');
-    }
-  } catch {
-    return null;
-  }
-  return null;
-}
-
-function decodeUcanPayload(token: string): UcanTokenPayload | null {
-  const parts = token.split('.');
-  if (parts.length < 2) return null;
-  const decoded = decodeBase64Url(parts[1]);
-  if (!decoded) return null;
-  try {
-    return JSON.parse(decoded) as UcanTokenPayload;
-  } catch {
-    return null;
-  }
-}
-
 async function getCachedInvocationToken(options: {
   issuer: UcanSessionKey;
   audience: string;
   capabilities: UcanCapability[];
   proofs: UcanRootProof[];
   expiresInMs?: number;
+  skewMs?: number;
   notBeforeMs?: number;
 }): Promise<string> {
   const cacheKey = buildTokenCacheKey(options.issuer, options.audience, options.capabilities);
   const cached = tokenCache.get(cacheKey);
   const nowMs = Date.now();
-  if (cached && isTokenValid(cached, nowMs)) {
-    return cached.token;
-  }
-
-  const token = await createInvocationUcan({
+  const token = await getOrCreateInvocationUcan({
+    ucan: cached?.token,
     issuer: options.issuer,
     audience: options.audience,
     capabilities: options.capabilities,
     proofs: options.proofs,
     expiresInMs: options.expiresInMs,
+    skewMs: options.skewMs,
+    nowMs,
     notBeforeMs: options.notBeforeMs,
   });
 
@@ -365,6 +323,7 @@ export async function initWebDavStorage(
     capabilities: invocationCaps,
     proofs: [root],
     expiresInMs: options.invocationExpiresInMs,
+    skewMs: options.invocationSkewMs,
     notBeforeMs: options.notBeforeMs,
   });
 
