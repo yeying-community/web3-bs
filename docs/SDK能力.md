@@ -56,6 +56,7 @@
 | WebDAV 直接访问（JWT/UCAN） | ✅ | ✅ | ✅ | `createWebDavClient` |
 | WebDAV + UCAN 自动初始化 | ✅ | ⚠️ | ❌ | `initWebDavStorage` |
 | DApp 会话编排 | ✅ | ⚠️ | ❌ | `initDappSession` |
+| 加解密（站点授权后静默） | ✅ | ⚠️ | ❌ | `encrypt` / `decrypt` / `getSupportedCipherSuites`（钱包插件路线） |
 
 说明：
 - `✅`：天然支持
@@ -220,6 +221,15 @@ const unsubscribe = watchAccounts(provider, () => {
 - `initWebDavStorage`
 - `initDappSession`
 - `deriveAppIdFromLocation` / `deriveAppIdFromHost`
+
+### 5.6 加解密服务
+
+- `encrypt` — 用命名安全套件加密（默认 `aes-256-gcm`）
+- `decrypt` — 解密 v1 格式密文
+- `getSupportedCipherSuites` — 列出可用套件
+- `CipherError` / `isUserRejectedWalletAction` — 错误分类
+
+详细用法、安全模型、限制见 [`加解密服务.md`](./加解密服务.md)。
 
 ## 6. 推荐接入组合
 
