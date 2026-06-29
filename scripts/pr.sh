@@ -220,11 +220,6 @@ gh_pr_create_with_default_repo() {
     blank
   fi
 
-  if printf '%s' "$output" | grep -qi "a pull request for branch .* already exists"; then
-    info "检测到 PR 已存在，视为成功。"
-    return 0
-  fi
-
   if printf '%s' "$output" | grep -qi "Resource not accessible by personal access token"; then
     info "创建 PR 失败：GH_TOKEN 缺少权限（createPullRequest）。"
     info "解决方式："
