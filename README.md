@@ -22,13 +22,21 @@ npm install @yeying-community/web3-bs
 
 - `getProvider` / `requireProvider`
 - `watchProvider`
-- `requestAccounts` / `focusPendingApproval` / `getAccounts` / `getPreferredAccount` / `watchAccounts`
+- `requestAccounts` / `focusPendingApproval` / `getAccounts` / `getPreferredAccount` / `resolveWalletAccount` / `watchAccounts`
 - `getChainId` / `getBalance`
 - `onAccountsChanged` / `onChainChanged`
 - `classifyWalletError` / `isUserRejectedWalletAction` / `isWalletReconnectError`
 
 `requestAccounts` 默认会复用同一 provider 上尚未完成的连接请求，避免用户重复点击时触发多个钱包授权弹窗。
 当钱包已经存在待确认的连接、签名或解锁窗口时，可调用 `focusPendingApproval` 将该窗口重新拉到前台，而不是再发起一次新的请求。
+
+`resolveWalletAccount` 用于处理“应用传入期望地址”和“钱包当前地址”之间的关系：
+- 未传 `expectedAccount`：直接采用钱包当前地址，返回 `status: "wallet"`
+- 传了且与钱包当前地址一致：返回 `status: "matched"`
+- 传了但与钱包当前地址不一致：返回 `status: "mismatch"`
+- 钱包当前没有可用地址：返回 `status: "unavailable"`
+
+它只返回结构化决策结果，不负责弹窗、toast 或业务状态写入，适合在登录、授权、签名前由应用自行决定是继续使用当前钱包地址，还是要求用户切换钱包账户。
 
 ### 2) SIWE + JWT
 

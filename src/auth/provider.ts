@@ -6,6 +6,8 @@ import {
   RequestAccountsOptions,
   AccountSelection,
   PreferredAccountOptions,
+  ResolveWalletAccountOptions,
+  WalletAccountResolution,
   WatchAccountsOptions,
   AccountsChangedHandler,
   WatchProviderOptions,
@@ -95,6 +97,21 @@ function selectPreferredAccount(
     return stored;
   }
   return accounts[0] || null;
+}
+
+function normalizeAccount(account?: string | null): string | null {
+  const normalized = (account || '').trim();
+  return normalized || null;
+}
+
+function isSameAccount(left?: string | null, right?: string | null): boolean {
+  const normalizedLeft = normalizeAccount(left);
+  const normalizedRight = normalizeAccount(right);
+  return Boolean(
+    normalizedLeft &&
+      normalizedRight &&
+      normalizedLeft.toLowerCase() === normalizedRight.toLowerCase()
+  );
 }
 
 export function isYeYingProvider(provider?: Eip1193Provider | null, info?: ProviderInfo): boolean {
@@ -402,6 +419,57 @@ export async function getPreferredAccount(
   const account = selectPreferredAccount(accounts, stored, preferStored);
   writeStoredAccount(storageKey, account);
   return { account, accounts };
+}
+
+export async function resolveWalletAccount(
+  options: ResolveWalletAccountOptions = {}
+): Promise<WalletAccountResolution> {
+  const provider = options.provider || (await requireProvider());
+  let accounts = await getAccounts(provider);
+  if (accounts.length === 0 && options.autoConnect) {
+    accounts = await requestAccounts({ provider });
+  }
+
+  const expectedAccount = normalizeAccount(options.expectedAccount);
+  const walletAccount = normalizeAccount(accounts[0]);
+
+  if (!walletAccount) {
+    return {
+      status: 'unavailable',
+      account: null,
+      walletAccount: null,
+      expectedAccount,
+      accounts,
+    };
+  }
+
+  if (!expectedAccount) {
+    return {
+      status: 'wallet',
+      account: walletAccount,
+      walletAccount,
+      expectedAccount: null,
+      accounts,
+    };
+  }
+
+  if (isSameAccount(expectedAccount, walletAccount)) {
+    return {
+      status: 'matched',
+      account: walletAccount,
+      walletAccount,
+      expectedAccount,
+      accounts,
+    };
+  }
+
+  return {
+    status: 'mismatch',
+    account: null,
+    walletAccount,
+    expectedAccount,
+    accounts,
+  };
 }
 
 export function watchAccounts(

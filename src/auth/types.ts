@@ -85,6 +85,41 @@ export interface PreferredAccountOptions extends RequestAccountsOptions {
   preferStored?: boolean;
 }
 
+export interface ResolveWalletAccountOptions extends RequestAccountsOptions {
+  expectedAccount?: string | null;
+  autoConnect?: boolean;
+}
+
+export type WalletAccountResolution =
+  | {
+      status: 'wallet';
+      account: string;
+      walletAccount: string;
+      expectedAccount: null;
+      accounts: string[];
+    }
+  | {
+      status: 'matched';
+      account: string;
+      walletAccount: string;
+      expectedAccount: string;
+      accounts: string[];
+    }
+  | {
+      status: 'mismatch';
+      account: null;
+      walletAccount: string;
+      expectedAccount: string;
+      accounts: string[];
+    }
+  | {
+      status: 'unavailable';
+      account: null;
+      walletAccount: null;
+      expectedAccount: string | null;
+      accounts: string[];
+    };
+
 export interface WatchAccountsOptions {
   storageKey?: string;
   preferStored?: boolean;
