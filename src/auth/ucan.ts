@@ -144,6 +144,46 @@ export type UcanAuthErrorInfo = {
   code?: string | number;
 };
 
+export type ResolveUcanAuthorizationReason =
+  | 'missing_root'
+  | 'expired'
+  | 'not_before'
+  | 'missing_account'
+  | 'invalid_issuer'
+  | 'issuer_mismatch'
+  | 'capability_mismatch'
+  | 'audience_mismatch'
+  | 'service_host_mismatch';
+
+export type ResolveUcanAuthorizationOptions = {
+  sessionId?: string;
+  root?: UcanRootProof | null;
+  currentAccount?: string | null;
+  expectedCapabilities?: UcanCapability[];
+  expectedAudience?: string | null;
+  expectedServiceHosts?: Record<string, string | null | undefined>;
+  recoverAccountFromRoot?: boolean;
+  nowMs?: number;
+};
+
+export type ResolveUcanAuthorizationResult =
+  | {
+      status: 'authorized';
+      account: string;
+      root: UcanRootProof;
+      restoredAccount: boolean;
+      expiresAt: number;
+    }
+  | {
+      status: 'unauthorized';
+      reason: ResolveUcanAuthorizationReason;
+      root?: UcanRootProof | null;
+      account?: string | null;
+      expiresAt?: number;
+      expected?: string;
+      actual?: string;
+    };
+
 const DEFAULT_SESSION_ID = 'default';
 export const DEFAULT_UCAN_SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 export const DEFAULT_UCAN_TOKEN_TTL_MS = 40 * 60 * 1000;
@@ -273,6 +313,77 @@ function normalizeExpiry(exp: number | undefined, fallbackMs: number): number {
 
 export function normalizeUcanExpiry(exp: number | undefined, fallbackMs: number): number {
   return normalizeExpiry(exp, fallbackMs);
+}
+
+function normalizeEthAccount(account?: string | null): string {
+  return String(account || '').trim().toLowerCase();
+}
+
+export function parseUcanAccountFromIssuer(issuer?: string | null): string | null {
+  const normalized = String(issuer || '').trim().toLowerCase();
+  const prefix = 'did:pkh:eth:';
+  if (!normalized.startsWith(prefix)) return null;
+  const account = normalized.slice(prefix.length);
+  return account || null;
+}
+
+function getUcanIssuerForAccount(account: string): string {
+  return `did:pkh:eth:${normalizeEthAccount(account)}`;
+}
+
+function extractUcanStatementPayload(message?: string | null): Record<string, unknown> | null {
+  if (!message || typeof message !== 'string') return null;
+  const marker = 'UCAN-AUTH';
+  const index = message.indexOf(marker);
+  if (index < 0) return null;
+  const jsonStart = message.indexOf('{', index + marker.length);
+  const jsonEnd = message.lastIndexOf('}');
+  if (jsonStart < 0 || jsonEnd < jsonStart) return null;
+  try {
+    const parsed = JSON.parse(message.slice(jsonStart, jsonEnd + 1));
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return null;
+    }
+    return parsed as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+function getUcanRootServiceHosts(root: UcanRootProof): Record<string, unknown> | null {
+  const payload = extractUcanStatementPayload(root.siwe?.message);
+  const hosts = payload?.service_hosts;
+  if (!hosts || typeof hosts !== 'object' || Array.isArray(hosts)) {
+    return null;
+  }
+  return hosts as Record<string, unknown>;
+}
+
+function getServiceHostMismatch(
+  root: UcanRootProof,
+  expectedServiceHosts?: Record<string, string | null | undefined>
+): { expected: string; actual: string } | null {
+  if (!expectedServiceHosts) return null;
+  const entries = Object.entries(expectedServiceHosts)
+    .map(([key, value]) => [key, String(value || '').trim()] as const)
+    .filter(([, value]) => Boolean(value));
+  if (!entries.length) return null;
+
+  const hosts = getUcanRootServiceHosts(root);
+  if (!hosts) {
+    return {
+      expected: entries.map(([key, value]) => `${key}:${value}`).join('|'),
+      actual: '',
+    };
+  }
+
+  for (const [key, expected] of entries) {
+    const actual = typeof hosts[key] === 'string' ? hosts[key].trim() : '';
+    if (actual !== expected) {
+      return { expected, actual };
+    }
+  }
+  return null;
 }
 
 export function decodeUcanPayload(token: string): UcanTokenPayload | null {
@@ -743,6 +854,118 @@ function capsEqual(a: UcanCapability[] | undefined, b: UcanCapability[] | undefi
 
 function isRootExpired(root: UcanRootProof, nowMs: number): boolean {
   return Boolean(root.exp && nowMs > root.exp);
+}
+
+export async function resolveUcanAuthorization(
+  options: ResolveUcanAuthorizationOptions = {}
+): Promise<ResolveUcanAuthorizationResult> {
+  const root = options.root === undefined
+    ? await getStoredUcanRoot(options.sessionId || DEFAULT_SESSION_ID)
+    : options.root;
+  const nowMs = options.nowMs ?? Date.now();
+
+  if (!root) {
+    return { status: 'unauthorized', reason: 'missing_root', root };
+  }
+  if (typeof root.exp !== 'number' || root.exp <= nowMs) {
+    return {
+      status: 'unauthorized',
+      reason: 'expired',
+      root,
+      expiresAt: root.exp,
+    };
+  }
+  if (typeof root.nbf === 'number' && root.nbf > nowMs) {
+    return {
+      status: 'unauthorized',
+      reason: 'not_before',
+      root,
+      expiresAt: root.exp,
+    };
+  }
+
+  const accountFromIssuer = parseUcanAccountFromIssuer(root.iss);
+  if (!accountFromIssuer) {
+    return {
+      status: 'unauthorized',
+      reason: 'invalid_issuer',
+      root,
+      expiresAt: root.exp,
+      actual: root.iss,
+    };
+  }
+
+  const currentAccount = normalizeEthAccount(options.currentAccount);
+  if (!currentAccount && !options.recoverAccountFromRoot) {
+    return {
+      status: 'unauthorized',
+      reason: 'missing_account',
+      root,
+      account: null,
+      expiresAt: root.exp,
+    };
+  }
+
+  const account = currentAccount || accountFromIssuer;
+  const expectedIssuer = getUcanIssuerForAccount(account);
+  if (root.iss !== expectedIssuer) {
+    return {
+      status: 'unauthorized',
+      reason: 'issuer_mismatch',
+      root,
+      account,
+      expiresAt: root.exp,
+      expected: expectedIssuer,
+      actual: root.iss,
+    };
+  }
+
+  if (
+    options.expectedCapabilities &&
+    !capsEqual(root.cap, options.expectedCapabilities)
+  ) {
+    return {
+      status: 'unauthorized',
+      reason: 'capability_mismatch',
+      root,
+      account,
+      expiresAt: root.exp,
+    };
+  }
+
+  const expectedAudience = String(options.expectedAudience || '').trim();
+  if (expectedAudience && root.aud !== expectedAudience) {
+    return {
+      status: 'unauthorized',
+      reason: 'audience_mismatch',
+      root,
+      account,
+      expiresAt: root.exp,
+      expected: expectedAudience,
+      actual: root.aud,
+    };
+  }
+
+  const serviceHostMismatch = getServiceHostMismatch(root, options.expectedServiceHosts);
+  if (serviceHostMismatch) {
+    return {
+      status: 'unauthorized',
+      reason: 'service_host_mismatch',
+      root,
+      account,
+      expiresAt: root.exp,
+      expected: serviceHostMismatch.expected,
+      actual: serviceHostMismatch.actual,
+    };
+  }
+
+  return {
+    status: 'authorized',
+    account,
+    root,
+    restoredAccount: !currentAccount && account === accountFromIssuer,
+    expiresAt: root.exp,
+  };
 }
 
 export async function getOrCreateUcanRoot(options: CreateRootUcanOptions): Promise<UcanRootProof> {
