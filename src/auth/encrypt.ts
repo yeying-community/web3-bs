@@ -4,7 +4,8 @@
  * 调用钱包插件的 `yeying_encrypt` / `yeying_decrypt` / `yeying_getCipherSuites`
  * EIP-1193 自定义方法。命名安全套件 + 静默执行 + 站点授权模型同 UCAN。
  *
- * 数据密码（password 参数）由 DApp 自行管理与钱包密码独立；
+ * 默认数据密码（password 参数）由 DApp 自行管理与钱包密码独立；
+ * 也可通过 passwordSource 请求钱包插件在钱包内部派生加密密码。
  * plaintext 走 base64 字符串跨 message 边界传输。
  */
 
@@ -17,16 +18,22 @@ export interface CipherSuiteInfo {
   mode: 'hash' | 'symmetric';
 }
 
+export type CipherPasswordSource = 'manual' | 'wallet' | 'wallet+password';
+
 export interface EncryptOptions {
   data: string | Uint8Array;
-  password: string;
+  password?: string;
+  passwordSource?: CipherPasswordSource;
+  passwordContext?: string;
   suite?: string;
   provider?: Eip1193Provider;
 }
 
 export interface DecryptOptions {
   ciphertext: string;
-  password: string;
+  password?: string;
+  passwordSource?: CipherPasswordSource;
+  passwordContext?: string;
   provider?: Eip1193Provider;
 }
 
@@ -86,6 +93,8 @@ export async function encrypt(options: EncryptOptions): Promise<string> {
       params: [{
         data: options.data,
         password: options.password,
+        passwordSource: options.passwordSource,
+        passwordContext: options.passwordContext,
         suite: options.suite
       }]
     });
@@ -109,7 +118,9 @@ export async function decrypt(options: DecryptOptions): Promise<Uint8Array> {
       method: 'yeying_decrypt',
       params: [{
         ciphertext: options.ciphertext,
-        password: options.password
+        password: options.password,
+        passwordSource: options.passwordSource,
+        passwordContext: options.passwordContext
       }]
     });
     if (!result || typeof result !== 'object' || typeof (result as any).plaintext !== 'string') {
