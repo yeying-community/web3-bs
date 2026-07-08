@@ -74,11 +74,39 @@ test('encrypt：透传 params + 接收 ciphertext', async () => {
     const opts = Array.isArray(params) ? params[0] : params;
     assert.equal(opts.data, 'secret-data');
     assert.equal(opts.password, 'p');
+    assert.equal(opts.passwordSource, 'manual');
+    assert.equal(opts.passwordContext, '/personal/secure');
     assert.equal(opts.suite, 'aes-256-gcm');
     return { ciphertext: 'v1:aes-256-gcm:...', suite: 'aes-256-gcm' };
   });
-  const ct = await encrypt({ data: 'secret-data', password: 'p', suite: 'aes-256-gcm', provider });
+  const ct = await encrypt({
+    data: 'secret-data',
+    password: 'p',
+    passwordSource: 'manual',
+    passwordContext: '/personal/secure',
+    suite: 'aes-256-gcm',
+    provider
+  });
   assert.equal(ct, 'v1:aes-256-gcm:...');
+});
+
+test('encrypt：支持钱包派生密码参数，无需传 password', async () => {
+  const provider = makeProvider(async (method, params) => {
+    assert.equal(method, 'yeying_encrypt');
+    const opts = Array.isArray(params) ? params[0] : params;
+    assert.equal(opts.data, 'wallet-secret');
+    assert.equal(opts.password, undefined);
+    assert.equal(opts.passwordSource, 'wallet');
+    assert.equal(opts.passwordContext, '/personal/wallet-only');
+    return { ciphertext: 'v1:aes-256-gcm:wallet' };
+  });
+  const ct = await encrypt({
+    data: 'wallet-secret',
+    passwordSource: 'wallet',
+    passwordContext: '/personal/wallet-only',
+    provider
+  });
+  assert.equal(ct, 'v1:aes-256-gcm:wallet');
 });
 
 test('encrypt：不传 suite 时 provider 收到 undefined（钱包默认 aes-256-gcm）', async () => {
@@ -120,9 +148,17 @@ test('decrypt：base64 plaintext 还原为 Uint8Array', async () => {
     const opts = Array.isArray(params) ? params[0] : params;
     assert.equal(opts.ciphertext, 'v1:...');
     assert.equal(opts.password, 'p');
+    assert.equal(opts.passwordSource, 'wallet+password');
+    assert.equal(opts.passwordContext, '/personal/secure');
     return { plaintext: bytesToBase64(original), encoding: 'base64' };
   });
-  const pt = await decrypt({ ciphertext: 'v1:...', password: 'p', provider });
+  const pt = await decrypt({
+    ciphertext: 'v1:...',
+    password: 'p',
+    passwordSource: 'wallet+password',
+    passwordContext: '/personal/secure',
+    provider
+  });
   assert.ok(pt instanceof Uint8Array);
   assert.equal(pt.length, 5);
   for (let i = 0; i < 5; i += 1) assert.equal(pt[i], original[i]);
