@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 
-const DEFAULT_TEST_FILES = ['tests/central-ucan.test.mjs'];
+const DEFAULT_TEST_PATTERNS = ['tests/*.test.mjs'];
 
 function toPosix(value) {
   return value.split(path.sep).join('/');
@@ -93,7 +93,7 @@ function expandGlob(pattern) {
 }
 
 function collectNodeTestTargets(rawArgs) {
-  const selected = [...DEFAULT_TEST_FILES];
+  const selected = DEFAULT_TEST_PATTERNS.flatMap(expandGlob);
 
   for (const rawArg of rawArgs) {
     const arg = String(rawArg || '').trim();
