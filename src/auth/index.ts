@@ -4,3 +4,4 @@ export * from './siwe';
 export * from './ucan';
 export * from './central';
 export * from './encrypt';
+export * from './profile';

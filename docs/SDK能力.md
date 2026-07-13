@@ -48,6 +48,7 @@
 | 标准消息签名 | ✅ | ✅ | ❌ | `signMessage` |
 | challenge / SIWE 登录 | ✅ | ✅ | ❌ | `loginWithChallenge` |
 | access token 缓存 / refresh | ✅ | ✅ | ✅ | `setAccessToken` / `authFetch` / `refreshAccessToken` |
+| 钱包用户名 / 邮箱授权 | ✅ | ❌ | ❌ | `connectAndGetWalletProfile` / `getWalletProfile` |
 | UCAN Session 创建 | ✅ | ⚠️ | ❌ | 优先 `yeying_ucan_session`；不可用时使用本地 session |
 | UCAN Root / Invocation | ✅ | ⚠️ | ❌ | Root 走 SIWE；Invocation 走 UCAN 签名 |
 | 多后端 UCAN 授权 | ✅ | ⚠️ | ❌ | 通过 delegation/invocation 按 audience/capability 下发 |

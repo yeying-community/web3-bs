@@ -26,6 +26,7 @@ npm install @yeying-community/web3-bs
 - `getChainId` / `getBalance`
 - `onAccountsChanged` / `onChainChanged`
 - `classifyWalletError` / `isUserRejectedWalletAction` / `isWalletReconnectError`
+- `connectAndGetWalletProfile` / `requestWalletProfilePermission` / `getWalletProfile`
 
 `requestAccounts` 默认会复用同一 provider 上尚未完成的连接请求，避免用户重复点击时触发多个钱包授权弹窗。
 当钱包已经存在待确认的连接、签名或解锁窗口时，可调用 `focusPendingApproval` 将该窗口重新拉到前台，而不是再发起一次新的请求。
