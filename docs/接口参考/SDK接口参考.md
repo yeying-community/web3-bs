@@ -251,9 +251,9 @@ Token 存储是协议无关的应用会话基础设施，SIWE、Wallet Identity 
 
 ### 5.8 Wallet Identity Login
 
-- `loginWithWalletIdentity` — 创建应用登录 session，请求 Wallet 出示 `wallet_identity_presentation`，再把 presentation 交给应用后端验证；返回值顶层包含 `did` 和 `walletAddress`，其中 `did` 是 Web3 应用应保存的身份主键。
+- `loginWithWalletIdentity` — 创建应用登录 session，请求 Wallet 出示 `wallet_identity_presentation`，再把 presentation 交给应用后端验证；不读取当前选中账户。返回值顶层包含 `did` 和可选的 `walletAddress`，其中 `did` 是 Web3 应用应保存的身份主键。
 - `requestIdentityPresentation` — 直接调用钱包插件的 `wallet_identity_presentation`。
-- `verifyIdentityPresentation` / `verifyIdentityPresentationCredentials` — 后端或同构环境可复用的 presentation 与 JWT-VC 校验辅助；请求 `identity.wallet` 时验证 `WalletAccountCredential` 及其和 `walletProof` 的一致性。
+- `verifyIdentityPresentation` / `verifyIdentityPresentationCredentials` — 后端或同构环境可复用的 presentation 与 JWT-VC 校验辅助；请求 `identity.wallet` 时验证 `WalletAccountCredential` 及其和 `walletProof` 的一致性。该证明来自身份的绑定地址，不要求当前选中账户匹配。
 
 第三方应用前端只负责把后端生成的 `audience`、`nonce`、scope 传给 Wallet；`appId` 仅作为可选展示上下文，不是钱包身份 presentation 的必需字段，也不应被当作 Node 应用主键。Wallet 使用本地有效凭证生成 presentation，应用后端使用预配置的 issuer 公钥/JWKS 和可信身份文档完成本地验证，正常登录不要求实时访问 Node。登录 session 可以返回 `issuerEndpoint`，仅当 Wallet 本地凭证过期或临近过期时，才透传给 Wallet 用于向 Node 发起一次性 challenge 续签。应用是否查询 Node credential status 属于独立的撤销策略。仅需地址控制权证明时使用 `loginWithSiwe`；需要邮箱时请求 `identity.email` scope，并以后端验证过的 `EmailCredential` 为准；需要已验证头像时请求 `identity.avatar` scope，并以后端验证过的 `AvatarCredential` 为准。
 
