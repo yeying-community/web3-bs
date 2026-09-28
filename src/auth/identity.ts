@@ -102,7 +102,7 @@ export async function queryCredentialStatuses(
     if (envelope.code !== 0 || !envelope.data) throw new Error('IDENTITY_CREDENTIAL_STATUS_UNKNOWN')
     return envelope.data
 }
-import { getChainId, requestAccounts, requireProvider } from './provider'
+import { requestAccounts, requireProvider } from './provider'
 import { setAccessToken } from './token'
 import type {
     Eip1193Provider,
@@ -281,12 +281,6 @@ async function identityLoginPost(fetcher: typeof fetch, credentials: RequestCred
     return payload.data || {}
 }
 
-function normalizedChainKey(chainId: string | null) {
-    if (!chainId) return 'eip155:1'
-    const value = chainId.startsWith('0x') ? Number.parseInt(chainId, 16).toString() : chainId
-    return `eip155:${value}`
-}
-
 async function requestWalletIdentityPermissions(provider: Eip1193Provider, scopes: IdentityPresentationScope[]) {
     const requestedScopes = normalizeScopes(scopes)
     const permissions = await provider.request({
@@ -315,10 +309,8 @@ export async function loginWithWalletIdentity(
     )
         throw new Error('IDENTITY_SCOPE_MISMATCH')
     await requestWalletIdentityPermissions(provider, scopes)
-    const address = options.address
     const appId = session.app_id || session.appId
     const issuerEndpoint = session.issuerEndpoint
-    const account = address ? { chainKey: normalizedChainKey(await getChainId(provider)), address } : undefined
     const presentation = await requestIdentityPresentation({
         provider,
         ...(appId ? { appId } : {}),
@@ -327,13 +319,11 @@ export async function loginWithWalletIdentity(
         nonce: session.nonce,
         scopes,
         requestId: session.request_id || session.requestId,
-        ...(account ? { account } : {}),
         ensureConnected: false
     })
     const result = await identityLoginPost(fetcher, credentials, verifyUrl, {
         session_id: session.session_id,
         request_id: session.request_id,
-        address,
         presentation
     })
     const token = String(result.token || '')
@@ -341,7 +331,7 @@ export async function loginWithWalletIdentity(
     if (options.storeToken !== false) setAccessToken(token, options)
     const did = String(result.did || presentation.holder || '')
     if (!did) throw new Error('WALLET_IDENTITY_DID_MISSING')
-    const walletAddress = String(result.walletAddress || result.wallet_address || address || '')
+    const walletAddress = String(result.walletAddress || result.wallet_address || '')
     return { token, did, ...(walletAddress ? { walletAddress } : {}), response: result }
 }
 
