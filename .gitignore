@@ -7,3 +7,14 @@ package-lock.json
 examples/backend/java/target/
 .42c
 logs
+
+# Project skill local task state
+.project-task.json
+.project-lifecycle.json
+.project-execution.json
+.project-execution/
+.project-task-*.json
+.project-lifecycle-*.json
+.project-execution-*.json
+.project-execution-*/
+.playwright-cli
